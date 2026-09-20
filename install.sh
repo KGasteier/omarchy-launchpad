@@ -83,7 +83,7 @@ hyprctl reload >/dev/null 2>&1 || true
 cat <<EOF
 Launchpad installiert.
   Plugin:   $PLUGIN_DIR
-  Tasten:   SUPER + SHIFT + R  (aendern in $HYPR/launchpad.lua)
+  Tasten:   SUPER + R  (aendern in $HYPR/launchpad.lua)
   Aufruf:   omarchy-shell shell toggle $PLUGIN_ID
   MRU:      $STATE/omarchy-launchpad/recent.json
 EOF

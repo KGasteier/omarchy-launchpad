@@ -32,7 +32,7 @@ cd omarchy-launchpad
 ./install.sh
 ```
 
-Danach öffnet `SUPER + SHIFT + R` das Raster. Die Shell wird beim Installieren
+Danach öffnet `SUPER + R` das Raster. Die Shell wird beim Installieren
 einmal neu gestartet (`omarchy restart shell`), das dauert wenige Sekunden.
 
 Entfernen:
