@@ -19,6 +19,8 @@ strip_block() {
   if grep -qF -- "$MARK_BEGIN" "$MAIN"; then
     cp "$MAIN" "$MAIN.bak.launchpad.$(date +%s)"
     sed -i "\\|$MARK_BEGIN|,\\|$MARK_END|d" "$MAIN"
+    # Leerzeilen am Dateiende einsammeln, sonst wachsen sie mit jedem Lauf.
+    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$MAIN"
   fi
 }
 
