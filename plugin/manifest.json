@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "kg.launchpad",
+  "name": "Launchpad",
+  "version": "0.1.0",
+  "author": "KGasteier",
+  "description": "App-Raster im Stil des macOS-Launchpads mit Zeile 'zuletzt benutzt'",
+  "kinds": [
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Launchpad.qml"
+  }
+}
