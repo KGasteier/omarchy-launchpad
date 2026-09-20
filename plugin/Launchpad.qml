@@ -46,6 +46,8 @@ Item {
         var v = JSON.parse(text())
         root.recentIds = Array.isArray(v) ? v.filter(function(x) { return typeof x === "string" }) : []
       } catch (e) { root.recentIds = [] }
+      // reload() liefert asynchron - das Raster ggf. nachziehen.
+      if (root.opened && root.showRecent) root.rebuildDisplay()
     }
     onLoadFailed: root.recentIds = []
   }
@@ -108,7 +110,7 @@ Item {
   function dismiss() {
     root.opened = false
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "kg.launchpad")
+      root.shell.hide((root.manifest && root.manifest.id) || "community.launchpad")
   }
 
   function toggle() {
@@ -231,7 +233,7 @@ Item {
     visible: root.opened
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "kg-launchpad"
+    WlrLayershell.namespace: "omarchy-launchpad"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
