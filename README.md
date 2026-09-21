@@ -15,8 +15,9 @@ Für ältere Omarchy-Versionen ohne Plugin-System gibt es die rofi-Fassung
 ## Eigenschaften
 
 - **6 × 6 Raster** mit Icon und Beschriftung; scrollt bei mehr Apps
-- **Zeile „zuletzt benutzt"** ganz oben, durch eine dezente Linie abgesetzt;
-  Lücken bleiben leer, die alphabetische Liste beginnt immer in Zeile 2
+- **Zeile „zuletzt benutzt"** ganz oben, dezent hinterlegt und durch eine
+  feine Linie abgesetzt; Lücken bleiben leer, die alphabetische Liste
+  beginnt immer in Zeile 2
 - **Drei Punkte am unteren Rand**, solange weitere Apps unterhalb liegen;
   am Listenende blenden sie aus
 - **Suche** wie im Omarchy-Menü (Treffer nach Relevanz), Suchfeld mit Lupe

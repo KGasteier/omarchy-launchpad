@@ -336,6 +336,23 @@ Item {
           width: parent.width
           height: parent.height - root.headerHeight - root.contentSpacing
 
+          // Hinterlegung der MRU-Zeile - liegt unter den Icons und scrollt
+          // mit. Eigene Clip-Ebene, sonst wandert der Streifen beim Scrollen
+          // ueber das Suchfeld.
+          Item {
+            anchors.fill: resultGrid
+            clip: true
+
+            Rectangle {
+              visible: root.showRecent
+              width: parent.width
+              height: root.cellHeight
+              y: -resultGrid.contentY
+              radius: root.cornerRadius
+              color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05)
+            }
+          }
+
           GridView {
             id: resultGrid
             anchors.left: parent.left
@@ -374,14 +391,20 @@ Item {
             }
           }
 
-          // Trennlinie unter der MRU-Zeile - scrollt mit dem Raster.
-          Rectangle {
-            visible: root.showRecent && displayModel.count > root.columns
-            x: Style.space(8)
-            width: parent.width - Style.space(16)
-            height: 1
-            y: root.cellHeight - resultGrid.contentY - 1
-            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.13)
+          // Trennlinie unter der MRU-Zeile - liegt ueber dem Raster und
+          // scrollt mit, ebenfalls auf den Rasterbereich beschnitten.
+          Item {
+            anchors.fill: resultGrid
+            clip: true
+
+            Rectangle {
+              visible: root.showRecent && displayModel.count > root.columns
+              x: Style.space(8)
+              width: parent.width - Style.space(16)
+              height: 1
+              y: root.cellHeight - resultGrid.contentY - 1
+              color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.13)
+            }
           }
 
           Text {
