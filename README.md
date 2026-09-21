@@ -1,3 +1,5 @@
+**Deutsch** · [English](README.en.md)
+
 # Omarchy Launchpad
 
 Ein größeres App-Launchpad im Omarchy-4-Stil als Overlay-Plugin für die
