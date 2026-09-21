@@ -1,6 +1,6 @@
 # Omarchy Launchpad
 
-Ein App-Raster im Stil des macOS-Launchpads als Overlay-Plugin für die
+Ein größeres App-Launchpad im Omarchy-4-Stil als Overlay-Plugin für die
 [Omarchy](https://omarchy.org)-Shell (Omarchy 4.0 oder neuer).
 
 ![Raster 6×6](docs/screenshot.png)

@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "community.launchpad",
   "name": "Launchpad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Klaus Gasteier",
-  "description": "App-Raster im Stil des macOS-Launchpads mit Zeile 'zuletzt benutzt'",
+  "description": "Groesseres App-Launchpad im Omarchy-4-Stil mit Zeile 'zuletzt benutzt'",
   "kinds": [
     "overlay"
   ],
