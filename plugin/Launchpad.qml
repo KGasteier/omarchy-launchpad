@@ -71,14 +71,21 @@ Item {
   readonly property int cornerRadius: Style.cornerRadius
   property string fontFamily: Style.font.menuFamily
 
-  // Raster: 7 Spalten, 7 sichtbare Zeilen. Die Karte ist so breit wie das
+  // Raster: 6 Spalten, 6 sichtbare Zeilen. Die Karte ist so breit wie das
   // rofi-Vorbild (rund 61 % der Bildschirmbreite); die Zellbreite ergibt sich
   // aus dem verfuegbaren Platz, damit die Spaltenzahl garantiert aufgeht -
   // Style.space() skaliert mit der Theme-Schrift, feste Werte gehen nicht auf.
-  property int columns: 7
-  property int visibleRows: 7
-  property int iconSize: Style.space(40)
-  property int cellHeight: Style.space(72)
+  //
+  // Die Karte behaelt die Masse der 7x7-Fassung: 7 * 72 = 504 verteilt sich
+  // jetzt auf 6 * 78 Rasterzeilen plus 36 fuer die Punkteleiste. Das Icon
+  // waechst mit der Zeilenhoehe (40 * 78/72), die Beschriftung nicht - so
+  // entsteht der zusaetzliche Weissraum.
+  property int columns: 6
+  property int visibleRows: 6
+  property int iconSize: Style.space(44)
+  property int cellHeight: Style.space(78)
+  // Streifen unter dem Raster fuer die "mehr da"-Punkte.
+  property int indicatorHeight: Style.space(36)
   property int contentMargin: Style.spacing.panelPadding
   property int headerHeight: Math.max(Style.space(34), Style.font.title + Style.spacing.controlPaddingY * 2)
   property int contentSpacing: Style.spacing.md
@@ -90,7 +97,7 @@ Item {
   // Rahmen UND Padding bereits.
   property int cardHeight: Math.min(panel.height - Style.gapsOut * 2,
     card.contentTopInset + card.contentBottomInset
-    + headerHeight + contentSpacing + visibleRows * cellHeight)
+    + headerHeight + contentSpacing + visibleRows * cellHeight + indicatorHeight)
 
   function open(payloadJson) {
     root.opened = true
@@ -331,7 +338,10 @@ Item {
 
           GridView {
             id: resultGrid
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: parent.height - root.indicatorHeight
             model: displayModel
             clip: true
             cellWidth: root.cellWidth
@@ -375,7 +385,8 @@ Item {
           }
 
           Text {
-            anchors.centerIn: parent
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: Math.round((resultGrid.height - height) / 2)
             visible: displayModel.count === 0
             textFormat: Text.PlainText
             text: "Keine Treffer für „" + root.filterText + "“"
@@ -383,6 +394,34 @@ Item {
             opacity: 0.7
             font.family: root.fontFamily
             font.pixelSize: Style.font.title
+          }
+
+          // Drei Punkte am unteren Rand, solange unterhalb des sichtbaren
+          // Ausschnitts noch Apps liegen - wie im macOS-Vorbild. Am Ende der
+          // Liste (und wenn alles ohnehin passt) verschwinden sie.
+          Row {
+            id: moreDots
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Math.round((root.indicatorHeight - height) / 2)
+            spacing: Style.space(7)
+
+            readonly property bool hasMore: resultGrid.contentHeight > resultGrid.height + 1
+              && !resultGrid.atYEnd
+            opacity: hasMore ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: 120 } }
+
+            Repeater {
+              model: 3
+              Rectangle {
+                width: Style.space(5)
+                height: width
+                radius: width / 2
+                color: root.foreground
+                opacity: 0.45
+              }
+            }
           }
         }
       }

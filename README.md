@@ -3,7 +3,7 @@
 Ein App-Raster im Stil des macOS-Launchpads als Overlay-Plugin für die
 [Omarchy](https://omarchy.org)-Shell (Omarchy 4.0 oder neuer).
 
-![Raster 7×7](docs/screenshot.png)
+![Raster 6×6](docs/screenshot.png)
 
 Das Plugin läuft im Shell-Prozess selbst (Quickshell/QML) — kein zusätzliches
 Programm, keine Fensterregeln, keine Theme-Templates. Farben, Schrift, Radien
@@ -14,9 +14,11 @@ Für ältere Omarchy-Versionen ohne Plugin-System gibt es die rofi-Fassung
 
 ## Eigenschaften
 
-- **7 × 7 Raster** mit Icon und Beschriftung; scrollt bei mehr Apps
+- **6 × 6 Raster** mit Icon und Beschriftung; scrollt bei mehr Apps
 - **Zeile „zuletzt benutzt"** ganz oben, durch eine dezente Linie abgesetzt;
   Lücken bleiben leer, die alphabetische Liste beginnt immer in Zeile 2
+- **Drei Punkte am unteren Rand**, solange weitere Apps unterhalb liegen;
+  am Listenende blenden sie aus
 - **Suche** wie im Omarchy-Menü (Treffer nach Relevanz), Suchfeld mit Lupe
 - **Maus und Tastatur**: Hover markiert, Klick startet; Pfeiltasten, `Enter`,
   `Escape` (löscht erst die Suche, dann schließt es)
@@ -61,6 +63,9 @@ MRU-Stand). Vor jedem Eingriff in `hyprland.lua` wird eine Sicherung
 Tastenkombination in `~/.config/hypr/launchpad.lua`; Spalten- und Zeilenzahl,
 Icon-Größe und Kartenbreite stehen als Properties am Anfang von
 `Launchpad.qml` (`columns`, `visibleRows`, `iconSize`, `cardWidth`).
+Die Kartenhöhe ergibt sich aus `visibleRows * cellHeight + indicatorHeight` —
+wer die Zeilenzahl ändert, passt `cellHeight` gegenläufig an, wenn die Karte
+gleich groß bleiben soll.
 Änderungen im Plugin-Ordner greifen bei Overlays erst nach
 `omarchy restart shell`.
 
