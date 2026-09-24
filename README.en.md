@@ -114,9 +114,15 @@ omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"tui"}'
 omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"ai"}'
 ```
 
-`gui`, `tui`, `terminal`, `webview` and `files` are accepted. The companion
-`radialmesh-companion` opens the launchpad with the type of the neighbouring
-card when an empty cell is clicked.
+Every mesh category is accepted: `terminal`, `tui`, `ai`, `gui`, `webview`,
+`files`, `editor`, `viewer`, `config`. The last three normally have no button
+of their own. When preselected, their button is appended to the bar until the
+launchpad closes. An unknown type opens "All".
+
+The companion `radialmesh-companion` of
+[hypr-radial-mesh](https://github.com/udk-gwk/hypr-radial-mesh) opens the
+launchpad when the "+" of an empty cell is clicked, filtered to the category
+of the neighbouring card (for all categories since hypr-radial-mesh 0.26.1).
 
 ### Size and grid
 

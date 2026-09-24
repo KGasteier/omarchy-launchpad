@@ -71,12 +71,18 @@ Item {
   // je Typ - Knoepfe ohne Programme werden ausgeblendet.
   property string activeType: "all"
   property var typeCounts: ({})
+  // Ein Farbtyp ohne eigenen Knopf (Editor, Viewer, System) bekommt einen,
+  // solange er gewaehlt ist - etwa beim Aufruf aus einer Leerzelle des Mesh
+  // mit {"type":"editor"}. So bleibt sichtbar, wonach gefiltert wird.
+  property string extraType: ""
   readonly property var visibleTypes: {
     var out = []
     for (var i = 0; i < Types.BUTTONS.length; i++) {
       var t = Types.BUTTONS[i]
       if (t === "all" || (root.typeCounts[t] || 0) > 0) out.push(t)
     }
+    if (root.extraType && out.indexOf(root.extraType) < 0 && (root.typeCounts[root.extraType] || 0) > 0)
+      out.push(root.extraType)
     return out
   }
 
@@ -215,7 +221,9 @@ Item {
     root.targetScreen = root.focusedScreen()
     root.opened = true
     root.filterText = ""
+    // Jeder Typ aus Types.LABELS ist erlaubt, auch die ohne eigenen Knopf.
     root.activeType = (payload.type && Types.LABELS[payload.type]) ? String(payload.type) : "all"
+    root.extraType = Types.BUTTONS.indexOf(root.activeType) < 0 ? root.activeType : ""
     root.selectedIndex = 0
     root.cursorActive = false
     if (root.appLibrary) root.appLibrary.refreshIcons()

@@ -117,9 +117,16 @@ omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"tui"}'
 omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"ai"}'
 ```
 
-`gui`, `tui`, `terminal`, `webview`, `files` sind möglich. Der Companion
-`radialmesh-companion` ruft das Launchpad mit dem Typ der Nachbarskarte auf,
-wenn eine leere Zelle angeklickt wird.
+Möglich sind alle Mesh-Kategorien: `terminal`, `tui`, `ai`, `gui`, `webview`,
+`files`, `editor`, `viewer`, `config`. Die letzten drei haben normalerweise
+keinen eigenen Knopf. Werden sie so vorgewählt, erscheint ihr Knopf
+zusätzlich am Ende der Leiste, bis das Launchpad geschlossen wird. Ein
+unbekannter Typ öffnet „Alle".
+
+Der Companion `radialmesh-companion` von
+[hypr-radial-mesh](https://github.com/udk-gwk/hypr-radial-mesh) öffnet das
+Launchpad bei Klick auf das „+" einer Leerzelle, gefiltert auf die Kategorie
+der Nachbarkarte (ab hypr-radial-mesh 0.26.1 für alle Kategorien).
 
 ### Größe und Raster
 
