@@ -5,8 +5,21 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 import "Monogram.js" as Monogram
+import "Types.js" as Types
 
-// Launchpad: App-Raster im Stil des macOS-Launchpads.
+// Radial-Mesh-Launchpad: App-Raster fuer den Radial-Mesh-Modus
+// (hypr-radial-mesh), Fork von omarchy-launchpad.
+//
+// Unterschiede zum Original:
+//  - Unter dem Suchfeld eine Knopfleiste mit den Fenstertypen des Mesh
+//    (Terminals, TUIs, Agents, GUIs, Webviews, Files, ...). Ein Programm kann
+//    mehreren Typen angehoeren (Pi: Agent + TUI). Nach Wahl eines Typs zeigt
+//    das Raster nur dessen Programme, weiter alphabetisch.
+//  - Jedes Icon liegt auf einer dezenten Flaeche in seiner Typfarbe - dieselbe
+//    Farbe, die das Fenster spaeter im Mesh traegt (Types.js).
+//  - Payload {"type":"tui"} waehlt beim Oeffnen gleich einen Typ vor.
+//
+// Aus dem Original:
 //
 // Aufbau nach dem Vorbild des Emojis-Overlays: ein Layer-Shell-Fenster ueber
 // dem ganzen Bildschirm, darin eine Karte mit Suchfeld und GridView.
@@ -16,7 +29,7 @@ import "Monogram.js" as Monogram
 // Zeile 1 zeigt die zuletzt gestarteten Apps (bis zu `columns` Stueck, Luecken
 // als leere Zellen), darunter durch eine Linie getrennt alle Apps alphabetisch.
 // Sobald gesucht wird, entfaellt die MRU-Zeile. Der MRU-Stand liegt als JSON
-// in ~/.local/state/omarchy-launchpad/recent.json.
+// in ~/.local/state/radialmesh-launchpad/recent.json.
 
 Item {
   id: root
@@ -30,10 +43,23 @@ Item {
   property int selectedIndex: 0
   property bool cursorActive: false
 
+  // Gewaehlter Typ ("all" = keine Einschraenkung) und die Zahl der Programme
+  // je Typ - Knoepfe ohne Programme werden ausgeblendet.
+  property string activeType: "all"
+  property var typeCounts: ({})
+  readonly property var visibleTypes: {
+    var out = []
+    for (var i = 0; i < Types.BUTTONS.length; i++) {
+      var t = Types.BUTTONS[i]
+      if (t === "all" || (root.typeCounts[t] || 0) > 0) out.push(t)
+    }
+    return out
+  }
+
   // Zuletzt gestartete App-IDs, neueste zuerst.
   property var recentIds: []
   readonly property string statePath: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
-  readonly property string recentPath: statePath + "/omarchy-launchpad/recent.json"
+  readonly property string recentPath: statePath + "/radialmesh-launchpad/recent.json"
   // Gilt die erste Rasterzeile als MRU-Zeile? Nur ohne Suchtext.
   readonly property bool showRecent: root.filterText.length === 0
 
@@ -49,7 +75,25 @@ Item {
       // reload() liefert asynchron - das Raster ggf. nachziehen.
       if (root.opened && root.showRecent) root.rebuildDisplay()
     }
-    onLoadFailed: root.recentIds = []
+    // Noch keine eigene MRU: einmalig die des Original-Launchpads
+    // uebernehmen, damit die Zeile nicht leer beginnt.
+    onLoadFailed: { root.recentIds = []; legacyRecent.reload() }
+  }
+
+  FileView {
+    id: legacyRecent
+    path: root.statePath + "/omarchy-launchpad/recent.json"
+    printErrors: false
+    onLoaded: {
+      if (root.recentIds.length > 0) return
+      try {
+        var v = JSON.parse(text())
+        if (!Array.isArray(v)) return
+        root.recentIds = v.filter(function(x) { return typeof x === "string" }).slice(0, root.columns)
+        recentFile.setText(JSON.stringify(root.recentIds))
+        if (root.opened && root.showRecent) root.rebuildDisplay()
+      } catch (e) {}
+    }
   }
 
   function rememberLaunch(appId) {
@@ -82,13 +126,17 @@ Item {
   // entsteht der zusaetzliche Weissraum.
   property int columns: 6
   property int visibleRows: 6
-  property int iconSize: Style.space(44)
+  // Icon kleiner als im Original (44), damit die Typflaeche darum herum
+  // in dieselbe Zeilenhoehe passt.
+  property int iconSize: Style.space(38)
+  property int iconPad: Style.space(8)
   property int cellHeight: Style.space(78)
   // Streifen unter dem Raster fuer die "mehr da"-Punkte.
   property int indicatorHeight: Style.space(36)
   property int contentMargin: Style.spacing.panelPadding
   property int headerHeight: Math.max(Style.space(34), Style.font.title + Style.spacing.controlPaddingY * 2)
   property int contentSpacing: Style.spacing.md
+  property int chipHeight: Math.max(Style.space(28), Style.font.body + Style.spacing.controlPaddingY * 2)
 
   property int cardWidth: Math.round(panel.width * 0.615)
   property int cellWidth: Math.floor(resultGrid.width / columns)
@@ -97,11 +145,16 @@ Item {
   // Rahmen UND Padding bereits.
   property int cardHeight: Math.min(panel.height - Style.gapsOut * 2,
     card.contentTopInset + card.contentBottomInset
-    + headerHeight + contentSpacing + visibleRows * cellHeight + indicatorHeight)
+    + headerHeight + contentSpacing + (showRecent ? cellHeight : 0) + contentSpacing
+    + chipHeight + contentSpacing
+    + visibleRows * cellHeight + indicatorHeight)
 
   function open(payloadJson) {
+    var payload = ({})
+    try { payload = JSON.parse(payloadJson || "{}") || ({}) } catch (e) { payload = ({}) }
     root.opened = true
     root.filterText = ""
+    root.activeType = (payload.type && Types.LABELS[payload.type]) ? String(payload.type) : "all"
     root.selectedIndex = 0
     root.cursorActive = false
     if (root.appLibrary) root.appLibrary.refreshIcons()
@@ -117,7 +170,7 @@ Item {
   function dismiss() {
     root.opened = false
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "community.launchpad")
+      root.shell.hide((root.manifest && root.manifest.id) || "community.radialmesh-launchpad")
   }
 
   function toggle() {
@@ -134,8 +187,13 @@ Item {
     var items = []
     for (var i = 0; i < rows.length; i++) {
       var e = rows[i].entry
+      var types = Types.classify(e)
       var src = root.appLibrary.iconSource(e.icon)
       items.push({
+        typeKey: types[0] || "gui",
+        // Mit Kommas umrahmt, damit indexOf(",tui,") eindeutig trifft;
+        // ListModel speichert keine Arrays.
+        typeList: "," + types.join(",") + ",",
         appId: String(e.id || ""),
         label: root.appLibrary.entryName(e),
         iconKey: String(e.icon || ""),
@@ -147,23 +205,37 @@ Item {
     }
     Monogram.assign(items)
 
-    // MRU-Zeile: Eintraege in Reihenfolge der recentIds, Rest mit leeren
-    // Zellen aufgefuellt, damit die alphabetische Liste stets in Zeile 2
-    // beginnt.
+    // Zaehlen ueber alle Programme (ohne Suchtext), damit die Knopfleiste
+    // beim Tippen nicht springt.
+    var all = root.filterText.length === 0 ? rows : root.appLibrary.sortedEntries("")
+    var counts = {}
+    for (var c = 0; c < all.length; c++) {
+      var ts = Types.classify(all[c].entry)
+      for (var q = 0; q < ts.length; q++) counts[ts[q]] = (counts[ts[q]] || 0) + 1
+    }
+    counts.all = all.length
+    root.typeCounts = counts
+    if (root.activeType !== "all" && !(counts[root.activeType] > 0)) root.activeType = "all"
+
+    // MRU-Zeile: eigene GridView ueber der Knopfleiste, Eintraege in
+    // Reihenfolge der recentIds. Keine Lueckenzellen - die alphabetische
+    // Liste beginnt in ihrem eigenen Raster ohnehin oben links.
+    recentModel.clear()
     if (root.showRecent) {
       var byId = {}
       for (var k = 0; k < items.length; k++) byId[items[k].appId] = items[k]
-      var n = 0
-      for (var r = 0; r < root.recentIds.length && n < root.columns; r++) {
+      for (var r = 0; r < root.recentIds.length && recentModel.count < root.columns; r++) {
         var hit = byId[root.recentIds[r]]
         if (!hit) continue   // deinstalliert - stillschweigend ueberspringen
         var copy = JSON.parse(JSON.stringify(hit)); copy.filler = false
-        displayModel.append(copy); n++
+        recentModel.append(copy)
       }
-      for (; n < root.columns; n++)
-        displayModel.append({ appId: "", label: "", iconKey: "", iconSource: "", needsMonogram: false, mono: "", hue: 0, filler: true })
     }
-    for (var j = 0; j < items.length; j++) { items[j].filler = false; displayModel.append(items[j]) }
+    for (var j = 0; j < items.length; j++) {
+      if (root.activeType !== "all" && items[j].typeList.indexOf("," + root.activeType + ",") < 0) continue
+      items[j].filler = false
+      displayModel.append(items[j])
+    }
     if (displayModel.count === 0) selectedIndex = 0
     else if (selectedIndex >= displayModel.count) selectedIndex = displayModel.count - 1
     Qt.callLater(function() {
@@ -219,6 +291,23 @@ Item {
     root.rebuildDisplay()
   }
 
+  function setType(t) {
+    if (root.activeType === t) return
+    root.activeType = t
+    root.selectedIndex = 0
+    root.cursorActive = root.filterText.length > 0
+    root.rebuildDisplay()
+    resultGrid.positionViewAtBeginning()
+  }
+
+  // Tab / Shift+Tab: zum naechsten / vorigen sichtbaren Typ.
+  function cycleType(delta) {
+    var vt = root.visibleTypes
+    if (vt.length === 0) return
+    var i = vt.indexOf(root.activeType)
+    root.setType(vt[((i < 0 ? 0 : i) + delta + vt.length) % vt.length])
+  }
+
   function activateIndex(index) {
     if (index < 0 || index >= displayModel.count) return
     var row = displayModel.get(index)
@@ -228,7 +317,17 @@ Item {
     if (root.appLibrary) root.appLibrary.launch(row.appId, row.label)
   }
 
+  function activateRecent(index) {
+    if (index < 0 || index >= recentModel.count) return
+    var row = recentModel.get(index)
+    if (row.filler || !row.appId) return
+    root.dismiss()
+    root.rememberLaunch(row.appId)
+    if (root.appLibrary) root.appLibrary.launch(row.appId, row.label)
+  }
+
   ListModel { id: displayModel }
+  ListModel { id: recentModel }
 
   Connections {
     target: root.appLibrary
@@ -240,7 +339,7 @@ Item {
     visible: root.opened
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omarchy-launchpad"
+    WlrLayershell.namespace: "radialmesh-launchpad"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore
@@ -267,9 +366,15 @@ Item {
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function(event) {
           if (event.key === Qt.Key_Escape) {
+            // Stufenweise zurueck: erst Suchtext, dann Typ, dann schliessen.
             if (root.filterText) root.setFilter("")
+            else if (root.activeType !== "all") root.setType("all")
             else root.dismiss()
             event.accepted = true
+          } else if (event.key === Qt.Key_Backtab || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))) {
+            root.cycleType(-1); event.accepted = true
+          } else if (event.key === Qt.Key_Tab) {
+            root.cycleType(1); event.accepted = true
           } else if (Util.editsFilter(event, root.filterText)) {
             root.setFilter(Util.editedFilter(event, root.filterText))
             event.accepted = true
@@ -319,7 +424,7 @@ Item {
             }
             Text {
               textFormat: Text.PlainText
-              text: root.filterText || "Suchen…"
+              text: root.filterText || (root.activeType === "all" ? "Suchen…" : "Suchen in " + Types.label(root.activeType) + "…")
               color: root.foreground
               opacity: root.filterText ? 1 : 0.5
               font.family: root.fontFamily
@@ -331,27 +436,148 @@ Item {
           }
         }
 
+        // MRU-Zeile: liegt ueber der Knopfleiste, dezent hinterlegt und mit
+        // feiner Linie darunter. Eigene GridView, scrollt nicht mit.
+        Item {
+          width: parent.width
+          height: root.showRecent ? root.cellHeight : 0
+          visible: root.showRecent
+
+          Rectangle {
+            anchors.fill: parent
+            anchors.margins: Style.space(2)
+            radius: root.cornerRadius
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05)
+          }
+
+          GridView {
+            id: recentGrid
+            anchors.fill: parent
+            model: recentModel
+            cellWidth: root.cellWidth
+            cellHeight: root.cellHeight
+            interactive: false
+            boundsBehavior: Flickable.StopAtBounds
+
+            delegate: AppCell {
+              required property int index
+              required property var model
+
+              label: model.label
+              iconSource: model.iconSource
+              needsMonogram: model.needsMonogram
+              mono: model.mono
+              hue: model.hue
+              filler: model.filler
+              typeColor: model.typeKey ? Types.color(model.typeKey) : "transparent"
+
+              width: root.cellWidth
+              height: root.cellHeight
+              iconSize: root.iconSize
+              iconPad: root.iconPad
+              foreground: root.foreground
+              selectedBackground: root.selectedBackground
+              fontFamily: root.fontFamily
+              hasCursor: false
+              onActivated: { root.cursorActive = true; root.activateRecent(index) }
+            }
+          }
+
+          Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            width: parent.width - Style.space(16)
+            height: 1
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.13)
+          }
+        }
+
+        // Typ-Knoepfe: gleich breit ueber die ganze Kartenbreite. Farbe je
+        // Typ wie im Mesh; der gewaehlte Knopf ist kraeftiger hinterlegt und
+        // umrandet.
+        Row {
+          id: chipRow
+          width: parent.width
+          height: root.chipHeight
+          spacing: Style.space(6)
+          // Breite je Knopf = Inhalt + Polster; was an Kartenbreite uebrig
+          // bleibt, wird gleichmaessig verteilt. Gleich breite Knoepfe liefen
+          // ueber ("Terminals 2" passte nicht).
+          readonly property int chipPad: Style.space(10)
+          property var naturalWidths: []
+          readonly property int extraWidth: {
+            var n = root.visibleTypes.length, sum = 0
+            for (var i = 0; i < n; i++) sum += (naturalWidths[i] || 0) + chipPad * 2
+            return n > 0 ? Math.max(0, Math.floor((width - sum - spacing * (n - 1)) / n)) : 0
+          }
+
+          Repeater {
+            model: root.visibleTypes
+            Rectangle {
+              id: chip
+              required property string modelData
+              required property int index
+              readonly property bool active: root.activeType === modelData
+              readonly property color tone: modelData === "all" ? root.foreground : Types.color(modelData)
+              width: chipContent.implicitWidth + chipRow.chipPad * 2 + chipRow.extraWidth
+              height: chipRow.height
+              radius: root.cornerRadius
+              color: Qt.rgba(tone.r, tone.g, tone.b, active ? 0.28 : (chipMouse.containsMouse ? 0.14 : 0.07))
+              border.width: active ? Math.max(1, Style.space(1)) : 0
+              border.color: Qt.rgba(tone.r, tone.g, tone.b, 0.75)
+
+              Row {
+                id: chipContent
+                anchors.centerIn: parent
+                spacing: Style.space(5)
+                onImplicitWidthChanged: {
+                  var w = chipRow.naturalWidths.slice()
+                  w[chip.index] = implicitWidth
+                  chipRow.naturalWidths = w
+                }
+                Rectangle {
+                  visible: chip.modelData !== "all"
+                  width: Style.space(7); height: width; radius: width / 2
+                  color: chip.tone
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  text: Types.label(chip.modelData)
+                  color: root.foreground
+                  opacity: chip.active ? 1 : 0.8
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.bold: chip.active
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  text: String(root.typeCounts[chip.modelData] || 0)
+                  color: root.foreground
+                  opacity: 0.45
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
+
+              MouseArea {
+                id: chipMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: { root.setType(chip.modelData); keyCatcher.forceActiveFocus() }
+              }
+            }
+          }
+        }
+
         // Raster
         Item {
           width: parent.width
-          height: parent.height - root.headerHeight - root.contentSpacing
-
-          // Hinterlegung der MRU-Zeile - liegt unter den Icons und scrollt
-          // mit. Eigene Clip-Ebene, sonst wandert der Streifen beim Scrollen
-          // ueber das Suchfeld.
-          Item {
-            anchors.fill: resultGrid
-            clip: true
-
-            Rectangle {
-              visible: root.showRecent
-              width: parent.width
-              height: root.cellHeight
-              y: -resultGrid.contentY
-              radius: root.cornerRadius
-              color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05)
-            }
-          }
+          height: parent.height - root.headerHeight - root.chipHeight
+            - (root.showRecent ? root.cellHeight : 0) - root.contentSpacing * 3
 
           GridView {
             id: resultGrid
@@ -378,10 +604,12 @@ Item {
               mono: model.mono
               hue: model.hue
               filler: model.filler
+              typeColor: model.typeKey ? Types.color(model.typeKey) : "transparent"
 
               width: root.cellWidth
               height: root.cellHeight
               iconSize: root.iconSize
+              iconPad: root.iconPad
               foreground: root.foreground
               selectedBackground: root.selectedBackground
               fontFamily: root.fontFamily
@@ -391,28 +619,14 @@ Item {
             }
           }
 
-          // Trennlinie unter der MRU-Zeile - liegt ueber dem Raster und
-          // scrollt mit, ebenfalls auf den Rasterbereich beschnitten.
-          Item {
-            anchors.fill: resultGrid
-            clip: true
-
-            Rectangle {
-              visible: root.showRecent && displayModel.count > root.columns
-              x: Style.space(8)
-              width: parent.width - Style.space(16)
-              height: 1
-              y: root.cellHeight - resultGrid.contentY - 1
-              color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.13)
-            }
-          }
-
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
             y: Math.round((resultGrid.height - height) / 2)
             visible: displayModel.count === 0
             textFormat: Text.PlainText
-            text: "Keine Treffer für „" + root.filterText + "“"
+            text: root.filterText
+              ? "Keine Treffer für „" + root.filterText + "“" + (root.activeType === "all" ? "" : " in " + Types.label(root.activeType))
+              : "Keine Programme vom Typ " + Types.label(root.activeType)
             color: root.foreground
             opacity: 0.7
             font.family: root.fontFamily

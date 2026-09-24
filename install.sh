@@ -1,5 +1,6 @@
 #!/bin/bash
-# Installiert das Launchpad-Overlay in die Omarchy-Shell (Omarchy >= 4.0).
+# Installiert das Radial-Mesh-Launchpad in die Omarchy-Shell (Omarchy >= 4.0).
+# Laeuft neben omarchy-launchpad; eigene Plugin-ID, eigene Taste, eigene MRU.
 # Aufruf: ./install.sh              installieren / aktualisieren
 #         ./install.sh --uninstall  restlos entfernen
 set -euo pipefail
@@ -9,15 +10,15 @@ CFG="${XDG_CONFIG_HOME:-$HOME/.config}"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}"
 HYPR="$CFG/hypr"
 MAIN="$HYPR/hyprland.lua"
-PLUGIN_ID="community.launchpad"
+PLUGIN_ID="community.radialmesh-launchpad"
 PLUGIN_DIR="$CFG/omarchy/plugins/$PLUGIN_ID"
-MARK_BEGIN="-- >>> omarchy-launchpad >>>"
-MARK_END="-- <<< omarchy-launchpad <<<"
+MARK_BEGIN="-- >>> radialmesh-launchpad >>>"
+MARK_END="-- <<< radialmesh-launchpad <<<"
 
 strip_block() {
   [[ -f "$MAIN" ]] || return 0
   if grep -qF -- "$MARK_BEGIN" "$MAIN"; then
-    cp "$MAIN" "$MAIN.bak.launchpad.$(date +%s)"
+    cp "$MAIN" "$MAIN.bak.rmlaunchpad.$(date +%s)"
     sed -i "\\|$MARK_BEGIN|,\\|$MARK_END|d" "$MAIN"
     # Leerzeilen am Dateiende einsammeln, sonst wachsen sie mit jedem Lauf.
     sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$MAIN"
@@ -29,12 +30,12 @@ if [[ "${1:-}" == "--uninstall" ]]; then
   # Nimmt den Eintrag unter "plugins" in shell.json wieder heraus.
   omarchy-shell shell setPluginEnabled "$PLUGIN_ID" false >/dev/null 2>&1 || true
   strip_block
-  rm -f "$HYPR/launchpad.lua"
+  rm -f "$HYPR/radialmesh-launchpad.lua"
   rm -rf "$PLUGIN_DIR"
-  rm -rf "$STATE/omarchy-launchpad"
+  rm -rf "$STATE/radialmesh-launchpad"
   omarchy-shell shell rescanPlugins >/dev/null 2>&1 || true
   hyprctl reload >/dev/null 2>&1 || true
-  echo "Launchpad entfernt."
+  echo "Radial Mesh Launchpad entfernt."
   exit 0
 fi
 
@@ -59,11 +60,13 @@ mkdir -p "$(dirname "$PLUGIN_DIR")"
 rm -rf "$PLUGIN_DIR"
 cp -a "$SRC/plugin" "$PLUGIN_DIR"
 
+mkdir -p "$STATE/radialmesh-launchpad"
+
 # --- Hyprland-Binding ------------------------------------------------------
-install -m 644 "$SRC/hypr/launchpad.lua" "$HYPR/launchpad.lua"
+install -m 644 "$SRC/hypr/radialmesh-launchpad.lua" "$HYPR/radialmesh-launchpad.lua"
 strip_block
-cp "$MAIN" "$MAIN.bak.launchpad.$(date +%s)"
-printf '\n%s\nrequire("hypr.launchpad")\n%s\n' "$MARK_BEGIN" "$MARK_END" >> "$MAIN"
+cp "$MAIN" "$MAIN.bak.rmlaunchpad.$(date +%s)"
+printf '\n%s\nrequire("hypr.radialmesh-launchpad")\n%s\n' "$MARK_BEGIN" "$MARK_END" >> "$MAIN"
 
 # --- Aktivieren ------------------------------------------------------------
 # Traegt das Plugin unter "plugins" in ~/.config/omarchy/shell.json ein;
@@ -77,13 +80,25 @@ fi
 # Die Shell laedt Overlays mit keepLoaded nur beim Start neu; ein Neustart
 # der Shell ist bei Updates deshalb noetig. omarchy restart shell ist
 # schnell und verliert keinen Zustand.
+# Braucht die alte Shell zum Beenden laenger als 5 s, startet
+# omarchy-restart-shell die neue zu frueh; sie bricht mit "An instance of this
+# configuration is already running" ab und die Leiste bleibt weg. Deshalb
+# pruefen und notfalls einmal nachstarten.
 omarchy restart shell >/dev/null 2>&1 || true
+sleep 2
+if ! omarchy-shell shell ping >/dev/null 2>&1; then
+  sleep 5
+  omarchy restart shell >/dev/null 2>&1 || true
+fi
+omarchy-shell shell ping >/dev/null 2>&1 \
+  || echo "Warnung: Shell laeuft nicht - bitte 'omarchy restart shell' ausfuehren." >&2
 hyprctl reload >/dev/null 2>&1 || true
 
 cat <<EOF
-Launchpad installiert.
+Radial Mesh Launchpad installiert.
   Plugin:   $PLUGIN_DIR
-  Tasten:   SUPER + R  (aendern in $HYPR/launchpad.lua)
+  Tasten:   SUPER + SHIFT + R  (aendern in $HYPR/radialmesh-launchpad.lua)
   Aufruf:   omarchy-shell shell toggle $PLUGIN_ID
-  MRU:      $STATE/omarchy-launchpad/recent.json
+  MRU:      $STATE/radialmesh-launchpad/recent.json
+  Typ vorwaehlen: omarchy-shell shell toggle $PLUGIN_ID '{"type":"ai"}'
 EOF

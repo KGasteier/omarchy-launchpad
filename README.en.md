@@ -1,45 +1,55 @@
-**English** · [Deutsch](README.md)
+**[Deutsch](README.md)** · English
 
-# Omarchy Launchpad
+# Radial Mesh Launchpad
 
-A larger app launchpad in Omarchy 4 style, as an overlay plugin for the
-[Omarchy](https://omarchy.org) shell (Omarchy 4.0 or newer).
+An app launchpad in the Omarchy 4 style with **filtering by window type** —
+as an overlay plugin for the [Omarchy](https://omarchy.org) shell. Built for
+the radial-mesh mode of
+[hypr-radial-mesh](https://github.com/KGasteier/hypr-radial-mesh), fork of
+[omarchy-launchpad](https://github.com/KGasteier/omarchy-launchpad).
 
-![6×6 grid](docs/screenshot.png)
+![6×6 grid with type filter bar](docs/screenshot.png)
 
 The plugin runs inside the shell process itself (Quickshell/QML) — no extra
-program, no window rules, no theme templates. Colours, fonts, radii and
+program, no window rules, no theme templates. Colors, fonts, radii and
 borders come from the menu tokens of the active theme.
-
-For older Omarchy versions without a plugin system there is the rofi variant
-[omarchy-rofi-launcher](https://github.com/KGasteier/omarchy-rofi-launcher).
 
 ## Features
 
-- **6 × 6 grid** with icon and label; scrolls when there are more apps
-- **A "recently used" row** at the top, gently tinted and set off by a
-  hairline; gaps stay empty, so the alphabetical list always starts in row 2
-- **Three dots at the bottom edge** while further apps are waiting below;
-  they fade out at the end of the list
-- **Search** as in the Omarchy menu (matches by relevance), search field
-  with a magnifier
-- **Mouse and keyboard**: hover highlights, click launches; arrow keys,
-  `Enter`, `Escape` (clears the search first, then closes)
-- **Monogram tiles** for apps without an icon — hue derived from the icon
-  name, initials from the app name (`Google Maps` → `Ga`,
-  `Google Messages` → `Gm`)
-- **Follows the theme** without any configuration of its own
+- **Type filter bar** below the search: All · Terminals · TUIs · Agents ·
+  GUIs · Webviews · Files. Each button shows how many programs it holds;
+  buttons with no programs are hidden
+- **Multiple assignments**: a program can belong to several types and shows
+  up in all of them — Pi is an agent *and* a TUI, w3m is a TUI *and* a
+  webview, Nautilus is files *and* GUI. The tint follows the type the mesh
+  assigns
+- **Alphabetical** within each type; search stays relevance-ordered
+- **Type colour behind every icon**: each tile sits on a subtly tinted
+  square in its type colour — including the MRU row
+- **“Recently used" row** at the top, subtly backed, thin rule below;
+  gaps stay empty so the list always starts in row 2
+- **6 × 6 grid**, scrolls when there are more programs; **dots at the
+  bottom** while more programs lie below
+- **Search** like the Omarchy menu, with a Nerd Font magnifier; the field
+  reads “Search in TUIs…" while a type is selected
+- **Esc steps back**: first the search text, then the type, then close
+- **Tab / Shift+Tab** jumps to the next / previous type
+- **Monogram tiles** for programs without an icon (`Monogram.js`)
+- **Theme dependent**, no configuration of its own
 
 ## Installation
 
 ```bash
-git clone https://github.com/KGasteier/omarchy-launchpad.git
-cd omarchy-launchpad
+git clone https://github.com/KGasteier/radialmesh-launchpad.git
+cd radialmesh-launchpad
 ./install.sh
 ```
 
-`SUPER + R` then opens the grid. The shell is restarted once during
-installation (`omarchy restart shell`), which takes a few seconds.
+`SUPER + SHIFT + R` then opens the grid. The installer restarts the shell
+once (`omarchy restart shell`), which takes a few seconds.
+
+The rofi-based version and `omarchy-launchpad` (key `SUPER + R`) can stay
+installed side by side — own plugin ID, own binding, own MRU file.
 
 To remove:
 
@@ -47,49 +57,77 @@ To remove:
 ./install.sh --uninstall
 ```
 
-This takes out only its own artefacts (plugin folder, binding file, the
-`require` block in `hyprland.lua`, the entry in `shell.json`, the MRU state).
-Before every change to `hyprland.lua` a backup
-`hyprland.lua.bak.launchpad.<time>` is written.
+This removes only its own artifacts (plugin folder, binding file, the
+`require("hypr.radialmesh-launchpad")` block between markers in
+`hyprland.lua`, the `shell.json` entry, the MRU state). Before every edit of
+`hyprland.lua` a backup `hyprland.lua.bak.rmlaunchpad.<time>` is written.
 
-## What goes where
+## What lands where
 
 | Path | Purpose |
 |---|---|
-| `~/.config/omarchy/plugins/community.launchpad/` | the plugin (copy of `plugin/`) |
-| `~/.config/hypr/launchpad.lua` | key binding |
-| `~/.config/hypr/hyprland.lua` | a `require("hypr.launchpad")` block between markers |
+| `~/.config/omarchy/plugins/community.radialmesh-launchpad/` | the plugin (copy of `plugin/`) |
+| `~/.config/hypr/radialmesh-launchpad.lua` | key binding |
+| `~/.config/hypr/hyprland.lua` | a `require("hypr.radialmesh-launchpad")` block between markers |
 | `~/.config/omarchy/shell.json` | entry under `plugins` (managed by the shell) |
-| `~/.local/state/omarchy-launchpad/recent.json` | recently launched apps |
+| `~/.local/state/radialmesh-launchpad/recent.json` | recently launched apps (seeded from the original's MRU on first run) |
 
-## Customising
+## Types
 
-Key combination in `~/.config/hypr/launchpad.lua`; column and row count, icon
-size and card width are properties at the top of `Launchpad.qml` (`columns`,
-`visibleRows`, `iconSize`, `cardWidth`).
-The card height follows from `visibleRows * cellHeight + indicatorHeight` — if
-you change the number of rows, adjust `cellHeight` the other way to keep the
-card the same size.
-Changes in the plugin folder only take effect for overlays after
-`omarchy restart shell`.
+Each program is classified from its desktop file fields: `Exec` (terminal
+starters, `--app-id=TUI.agent`, `omarchy-launch-webapp`), `Terminal=true`
+and `Categories`. The types and their colours are identical to
+`M.config.colors` in `hypr-radial-mesh` — a program carries the same colour
+in the launchpad as its card later has in the mesh.
 
-Calling it by hand or from other scripts:
+| Type | Colour | detected via |
+|---|---|---|
+| Terminals | turquoise | category `TerminalEmulator` |
+| TUIs | green | `Terminal=true`, `xdg-terminal-exec`, `ConsoleOnly` |
+| Agents | magenta | `--app-id=TUI.agent`, `org.omarchy.agent` (also a TUI) |
+| Webviews | orange | category `WebBrowser`, `omarchy-launch-webapp` |
+| Files | sand | category `FileManager` / `FileSystem` |
+| GUIs | rose | anything with its own window that is not terminal/TUI/webview |
+
+Editors, viewers and system tiles keep their own colour type (blue, violet,
+grey) but stay reachable through the buttons above — they are GUIs as well.
+Hand assignments live in `plugin/Types.js` (`OVERRIDES`, keyed by desktop ID).
+
+## Invocation and customization
+
+By hand or from scripts, optionally with a preselected type:
 
 ```bash
-omarchy-shell shell toggle community.launchpad
+omarchy-shell shell toggle community.radialmesh-launchpad
+omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"tui"}'
+omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"ai"}'
 ```
+
+`gui`, `tui`, `terminal`, `webview` and `files` are accepted. The companion
+`radialmesh-companion` opens the launchpad with the type of the neighbouring
+card when an empty cell is clicked.
+
+The shortcut lives in `~/.config/hypr/radialmesh-launchpad.lua`; column and
+row count, icon size and card width are properties at the top of
+`Launchpad.qml` (`columns`, `visibleRows`, `iconSize`, `cardWidth`). Card
+height follows `visibleRows * cellHeight + indicatorHeight` — if you change
+the row count, adjust `cellHeight` in the opposite direction to keep the
+card the same size. Changes in the plugin folder only take effect for
+overlays after `omarchy restart shell`.
 
 ## Known quirks
 
-- **Hot reload does not work for this overlay.** The shell does notice changes
-  in the plugin folder (inotify), but the already loaded overlay instance stays
-  around. After changes: `omarchy restart shell`.
+- **Hot reload does not work for this overlay.** The shell notices changes
+  in the plugin folder (inotify), but the loaded overlay instance stays as
+  it is. After changes: `omarchy restart shell`.
 - **Symlinks instead of a copy** in the plugin folder are not seen by the
-  watcher — which is why `install.sh` copies.
-- The magnifier in the search field is a Nerd Font glyph (`U+F002`); without a
-  Nerd font you get a replacement box (`ttf-jetbrains-mono-nerd` helps).
-- Search shows only the matches, no MRU row — as in the original.
+  watcher — `install.sh` copies for that reason.
+- The magnifier in the search field is a Nerd Font glyph (`U+F002`); without
+  a Nerd Font a placeholder box appears (`ttf-jetbrains-mono-nerd` helps).
+- Search shows only the hits, no MRU row — like the original.
+- Editors, viewers and system tiles have **no buttons of their own** (they
+  would duplicate `GUIs`); their tint still tells them apart.
 
-## Licence
+## License
 
 MIT, see [LICENSE](LICENSE).

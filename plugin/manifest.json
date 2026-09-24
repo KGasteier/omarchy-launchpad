@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "id": "community.launchpad",
-  "name": "Launchpad",
-  "version": "0.1.1",
+  "id": "community.radialmesh-launchpad",
+  "name": "Radial Mesh Launchpad",
+  "version": "0.1.0",
   "author": "Klaus Gasteier",
-  "description": "Groesseres App-Launchpad im Omarchy-4-Stil mit Zeile 'zuletzt benutzt'",
+  "description": "App-Launchpad fuer den Radial-Mesh-Modus: Filter nach Fenstertyp, Icons in Typfarbe",
   "kinds": [
     "overlay"
   ],
