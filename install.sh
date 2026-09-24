@@ -1,6 +1,7 @@
 #!/bin/bash
 # Installiert das Radial-Mesh-Launchpad in die Omarchy-Shell (Omarchy >= 4.0).
-# Laeuft neben omarchy-launchpad; eigene Plugin-ID, eigene Taste, eigene MRU.
+# Belegt SUPER + R; davor omarchy-launchpad mit dessen --uninstall entfernen.
+# Eigene Plugin-ID und eigener MRU-Stand, laeuft also auch nebenbei.
 # Aufruf: ./install.sh              installieren / aktualisieren
 #         ./install.sh --uninstall  restlos entfernen
 set -euo pipefail
@@ -84,20 +85,29 @@ fi
 # omarchy-restart-shell die neue zu frueh; sie bricht mit "An instance of this
 # configuration is already running" ab und die Leiste bleibt weg. Deshalb
 # pruefen und notfalls einmal nachstarten.
-omarchy restart shell >/dev/null 2>&1 || true
-sleep 2
-if ! omarchy-shell shell ping >/dev/null 2>&1; then
-  sleep 5
+#
+# Nie bei gesperrtem Bildschirm: Die Sperre lebt im Shell-Prozess, ein
+# Neustart hinterlaesst sie verwaist ("lock-stranded") - die Sitzung war
+# danach nur noch per Neustart der VM zu retten (2026-09-24).
+if [[ "$(omarchy-shell lock isLocked 2>/dev/null)" == "true" ]]; then
+  echo "Hinweis: Bildschirm gesperrt - Shell-Neustart ausgelassen." >&2
+  echo "         Nach dem Entsperren: omarchy restart shell" >&2
+else
   omarchy restart shell >/dev/null 2>&1 || true
+  sleep 2
+  if ! omarchy-shell shell ping >/dev/null 2>&1; then
+    sleep 5
+    omarchy restart shell >/dev/null 2>&1 || true
+  fi
+  omarchy-shell shell ping >/dev/null 2>&1 \
+    || echo "Warnung: Shell laeuft nicht - bitte 'omarchy restart shell' ausfuehren." >&2
 fi
-omarchy-shell shell ping >/dev/null 2>&1 \
-  || echo "Warnung: Shell laeuft nicht - bitte 'omarchy restart shell' ausfuehren." >&2
 hyprctl reload >/dev/null 2>&1 || true
 
 cat <<EOF
 Radial Mesh Launchpad installiert.
   Plugin:   $PLUGIN_DIR
-  Tasten:   SUPER + SHIFT + R  (aendern in $HYPR/radialmesh-launchpad.lua)
+  Tasten:   SUPER + R  (aendern in $HYPR/radialmesh-launchpad.lua)
   Aufruf:   omarchy-shell shell toggle $PLUGIN_ID
   MRU:      $STATE/radialmesh-launchpad/recent.json
   Typ vorwaehlen: omarchy-shell shell toggle $PLUGIN_ID '{"type":"ai"}'

@@ -24,10 +24,12 @@ und Rahmen kommen aus den Menü-Tokens des aktiven Themas.
   Nautilus ist File *und* GUI. Gefärbt wird nach dem Typ, den das Mesh
   zuordnet
 - **Alphabetisch** innerhalb jedes Typs, Suche bleibt relevant sortiert
-- **Typfarbe im Icon-Hintergrund**: Jede Kachel liegt auf einer dezent
-  getönten Fläche in ihrer Typfarbe — auch in der MRU-Zeile
-- **Zeile „zuletzt benutzt"** ganz oben, dezent hinterlegt, feine Linie
-  darunter; Lücken bleiben leer, die Liste beginnt immer in Zeile 2
+- **Typfarbe im Icon-Hintergrund**: Jede Kachel liegt auf einer klar
+  erkennbaren, getönten Fläche in ihrer Typfarbe — ohne abgesetzte Linie,
+  unter dem Cursor etwas kräftiger
+- **Zeile „zuletzt benutzt"** zwischen Suche und Filterleiste, dezent
+  hinterlegt, feine Linie darunter; sie scrollt nicht mit und startet
+  das Programm direkt per Klick
 - **6 × 6 Raster**, scrollt bei mehr Programmen; **Punkte am unteren Rand**,
   solange darunter weitere liegen
 - **Suche** wie im Omarchy-Menü, mit Nerd-Font-Lupe; im Suchfeld steht
@@ -45,13 +47,16 @@ cd radialmesh-launchpad
 ./install.sh
 ```
 
-Danach öffnet `SUPER + SHIFT + R` das Raster. Die Shell wird beim
-Installieren einmal neu gestartet (`omarchy restart shell`), das dauert
-wenige Sekunden.
+Danach öffnet `SUPER + R` das Raster. Die Shell wird beim Installieren
+einmal neu gestartet (`omarchy restart shell`), das dauert wenige Sekunden.
 
-Die rofi-basierte Fassung und `omarchy-launchpad` (Taste `SUPER + R`) können
-gleichzeitig installiert bleiben — eigene Plugin-ID, eigene Bindung, eigener
-MRU-Stand.
+**Tausch gegen `omarchy-launchpad`**: zuerst dort `./install.sh --uninstall`
+ausführen, dann dieses hier installieren. Beide auf `SUPER + R` darf Hyprland
+nicht haben. Die rofi-basierte Fassung bleibt davon unberührt.
+
+Neben dem Original installiert werden kann es trotzdem — dann aber die
+Bindung in `~/.config/hypr/radialmesh-launchpad.lua` ändern (z. B. auf
+`SUPER + SHIFT + R`), eigene Plugin-ID und eigener MRU-Stand vorausgesetzt.
 
 Entfernen:
 

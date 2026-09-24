@@ -54,6 +54,27 @@ var OVERRIDES = {
   "org.gnome.DiskUtility": ["config", "gui"]
 }
 
+// Programmnamen bekannter Dateimanager (grafisch und im Terminal).
+var FILE_MANAGERS = /^(nautilus|nemo|thunar|dolphin|pcmanfm(-qt)?|caja|yazi|ranger|lf|nnn|mc|ytree|superfile|spf)$/
+
+// Name des gestarteten Programms: erstes Wort des Exec ohne Pfad und ohne
+// vorangestelltes "env VAR=...". Terminal-Starter zeigen auf ihr Ziel
+// (omarchy-launch-or-focus-tui btop -> btop).
+function execName(exec) {
+  var w = String(exec || "").trim().split(/\s+/)
+  var i = 0
+  if (w[i] === "env") { i++; while (i < w.length && w[i].indexOf("=") > 0) i++ }
+  var name = (w[i] || "").replace(/^.*\//, "")
+  if (/^(omarchy-launch-or-focus-tui|omarchy-launch-tui|xdg-terminal-exec)$/.test(name)) {
+    for (var k = i + 1; k < w.length; k++) {
+      if (w[k] === "-e") continue
+      if (w[k].charAt(0) === "-") continue
+      return w[k].replace(/^.*\//, "")
+    }
+  }
+  return name
+}
+
 function has(list, name) {
   for (var i = 0; i < list.length; i++) if (String(list[i]).toLowerCase() === name) return true
   return false
@@ -100,7 +121,11 @@ function classify(entry) {
       || /\bomarchy-webapp-handler/.test(exec))
     set.webview = true
 
-  if (has(cats, "filemanager") || has(cats, "filesystem")) set.files = true
+  // Dateimanager auch am Programmnamen: Nemo liefert keine Kategorie
+  // FileManager und landete sonst unter GUIs.
+  if (has(cats, "filemanager") || has(cats, "filesystem")
+      || FILE_MANAGERS.test(execName(exec)))
+    set.files = true
   if (has(cats, "texteditor") || has(cats, "ide")) set.editor = true
   if (has(cats, "viewer") || has(cats, "player")) set.viewer = true
   if (has(cats, "settings") || has(cats, "desktopsettings") || has(cats, "hardwaresettings"))

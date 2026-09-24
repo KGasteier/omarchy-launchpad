@@ -26,10 +26,10 @@ import "Types.js" as Types
 // Die App-Liste, Icon-Aufloesung und das Starten uebernimmt der Shell-Dienst
 // shell.appLibrary - hier steckt nur Darstellung, Suche und Tastatur.
 //
-// Zeile 1 zeigt die zuletzt gestarteten Apps (bis zu `columns` Stueck, Luecken
-// als leere Zellen), darunter durch eine Linie getrennt alle Apps alphabetisch.
-// Sobald gesucht wird, entfaellt die MRU-Zeile. Der MRU-Stand liegt als JSON
-// in ~/.local/state/radialmesh-launchpad/recent.json.
+// Ueber der Knopfleiste zeigt eine eigene Zeile die zuletzt gestarteten Apps
+// (bis zu `columns` Stueck), darunter das Raster alphabetisch. Sobald gesucht
+// wird, entfaellt die MRU-Zeile. Der MRU-Stand liegt als JSON in
+// ~/.local/state/radialmesh-launchpad/recent.json.
 
 Item {
   id: root
@@ -56,6 +56,12 @@ Item {
     return out
   }
 
+  // Klassifikation je Desktop-ID, gilt bis sich die App-Liste aendert. Spart
+  // bei jedem Tastendruck das erneute Klassifizieren aller Programme.
+  property var typeCache: ({})
+  // Zuletzt aufgebaute Zeilen je App-ID - Quelle fuer die MRU-Zeile.
+  property var itemsById: ({})
+
   // Zuletzt gestartete App-IDs, neueste zuerst.
   property var recentIds: []
   readonly property string statePath: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
@@ -72,8 +78,8 @@ Item {
         var v = JSON.parse(text())
         root.recentIds = Array.isArray(v) ? v.filter(function(x) { return typeof x === "string" }) : []
       } catch (e) { root.recentIds = [] }
-      // reload() liefert asynchron - das Raster ggf. nachziehen.
-      if (root.opened && root.showRecent) root.rebuildDisplay()
+      // reload() liefert asynchron - nur die MRU-Zeile nachziehen.
+      if (root.opened) root.rebuildRecent()
     }
     // Noch keine eigene MRU: einmalig die des Original-Launchpads
     // uebernehmen, damit die Zeile nicht leer beginnt.
@@ -91,7 +97,7 @@ Item {
         if (!Array.isArray(v)) return
         root.recentIds = v.filter(function(x) { return typeof x === "string" }).slice(0, root.columns)
         recentFile.setText(JSON.stringify(root.recentIds))
-        if (root.opened && root.showRecent) root.rebuildDisplay()
+        if (root.opened) root.rebuildRecent()
       } catch (e) {}
     }
   }
@@ -158,8 +164,9 @@ Item {
     root.selectedIndex = 0
     root.cursorActive = false
     if (root.appLibrary) root.appLibrary.refreshIcons()
-    recentFile.reload()
+    root.refreshCounts()
     root.rebuildDisplay()
+    recentFile.reload()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
@@ -178,6 +185,39 @@ Item {
     else root.open("{}")
   }
 
+  function typesOf(e) {
+    var id = String(e.id || "")
+    var t = root.typeCache[id]
+    if (!t) { t = Types.classify(e); root.typeCache[id] = t }
+    return t
+  }
+
+  // Programme je Typ, immer ueber die ganze Liste (ohne Suchtext), damit die
+  // Knopfleiste beim Tippen nicht springt. Nur beim Oeffnen und wenn sich die
+  // App-Liste aendert.
+  function refreshCounts() {
+    if (!root.appLibrary) return
+    var all = root.appLibrary.sortedEntries("")
+    var counts = {}
+    for (var c = 0; c < all.length; c++) {
+      var ts = root.typesOf(all[c].entry)
+      for (var q = 0; q < ts.length; q++) counts[ts[q]] = (counts[ts[q]] || 0) + 1
+    }
+    counts.all = all.length
+    root.typeCounts = counts
+  }
+
+  // MRU-Zeile in Reihenfolge der recentIds; deinstallierte Programme
+  // fallen stillschweigend heraus.
+  function rebuildRecent() {
+    recentModel.clear()
+    if (!root.showRecent) return
+    for (var r = 0; r < root.recentIds.length && recentModel.count < root.columns; r++) {
+      var hit = root.itemsById[root.recentIds[r]]
+      if (hit) recentModel.append(hit)
+    }
+  }
+
   function rebuildDisplay() {
     displayModel.clear()
     if (!root.appLibrary) return
@@ -187,7 +227,7 @@ Item {
     var items = []
     for (var i = 0; i < rows.length; i++) {
       var e = rows[i].entry
-      var types = Types.classify(e)
+      var types = root.typesOf(e)
       var src = root.appLibrary.iconSource(e.icon)
       items.push({
         typeKey: types[0] || "gui",
@@ -204,33 +244,17 @@ Item {
       })
     }
     Monogram.assign(items)
+    if (root.activeType !== "all" && !(root.typeCounts[root.activeType] > 0)) root.activeType = "all"
 
-    // Zaehlen ueber alle Programme (ohne Suchtext), damit die Knopfleiste
-    // beim Tippen nicht springt.
-    var all = root.filterText.length === 0 ? rows : root.appLibrary.sortedEntries("")
-    var counts = {}
-    for (var c = 0; c < all.length; c++) {
-      var ts = Types.classify(all[c].entry)
-      for (var q = 0; q < ts.length; q++) counts[ts[q]] = (counts[ts[q]] || 0) + 1
-    }
-    counts.all = all.length
-    root.typeCounts = counts
-    if (root.activeType !== "all" && !(counts[root.activeType] > 0)) root.activeType = "all"
-
-    // MRU-Zeile: eigene GridView ueber der Knopfleiste, Eintraege in
-    // Reihenfolge der recentIds. Keine Lueckenzellen - die alphabetische
-    // Liste beginnt in ihrem eigenen Raster ohnehin oben links.
-    recentModel.clear()
-    if (root.showRecent) {
+    // Ohne Suchtext ist das die vollstaendige Liste - Quelle der MRU-Zeile.
+    // ListModel.append kopiert, die Objekte duerfen geteilt werden.
+    if (root.filterText.length === 0) {
       var byId = {}
-      for (var k = 0; k < items.length; k++) byId[items[k].appId] = items[k]
-      for (var r = 0; r < root.recentIds.length && recentModel.count < root.columns; r++) {
-        var hit = byId[root.recentIds[r]]
-        if (!hit) continue   // deinstalliert - stillschweigend ueberspringen
-        var copy = JSON.parse(JSON.stringify(hit)); copy.filler = false
-        recentModel.append(copy)
-      }
+      for (var k = 0; k < items.length; k++) { items[k].filler = false; byId[items[k].appId] = items[k] }
+      root.itemsById = byId
     }
+    root.rebuildRecent()
+
     for (var j = 0; j < items.length; j++) {
       if (root.activeType !== "all" && items[j].typeList.indexOf("," + root.activeType + ",") < 0) continue
       items[j].filler = false
@@ -331,7 +355,10 @@ Item {
 
   Connections {
     target: root.appLibrary
-    function onAppsChanged() { if (root.opened) root.rebuildDisplay() }
+    function onAppsChanged() {
+      root.typeCache = ({})
+      if (root.opened) { root.refreshCounts(); root.rebuildDisplay() }
+    }
   }
 
   PanelWindow {

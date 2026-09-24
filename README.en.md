@@ -24,10 +24,11 @@ borders come from the menu tokens of the active theme.
   webview, Nautilus is files *and* GUI. The tint follows the type the mesh
   assigns
 - **Alphabetical** within each type; search stays relevance-ordered
-- **Type colour behind every icon**: each tile sits on a subtly tinted
-  square in its type colour — including the MRU row
-- **“Recently used" row** at the top, subtly backed, thin rule below;
-  gaps stay empty so the list always starts in row 2
+- **Type colour behind every icon**: each tile sits on a clearly visible
+  tinted square in its type colour — no separate outline, slightly stronger
+  under the cursor — including the MRU row
+- **“Recently used" row** between the search field and the filter bar; it
+  does not scroll and launches the app directly on click
 - **6 × 6 grid**, scrolls when there are more programs; **dots at the
   bottom** while more programs lie below
 - **Search** like the Omarchy menu, with a Nerd Font magnifier; the field
@@ -45,11 +46,16 @@ cd radialmesh-launchpad
 ./install.sh
 ```
 
-`SUPER + SHIFT + R` then opens the grid. The installer restarts the shell
-once (`omarchy restart shell`), which takes a few seconds.
+`SUPER + R` then opens the grid. The installer restarts the shell once
+(`omarchy restart shell`), which takes a few seconds.
 
-The rofi-based version and `omarchy-launchpad` (key `SUPER + R`) can stay
-installed side by side — own plugin ID, own binding, own MRU file.
+**Replacing `omarchy-launchpad`**: run `./install.sh --uninstall` there
+first, then install this one. Hyprland must not see two `SUPER + R`
+bindings. The rofi-based version is unaffected.
+
+Side-by-side installs still work — but then change the binding in
+`~/.config/hypr/radialmesh-launchpad.lua` (e. g. to `SUPER + SHIFT + R`);
+the plugin ID and the MRU file are separate either way.
 
 To remove:
 
