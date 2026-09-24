@@ -5,7 +5,7 @@
 App-Launchpad im Omarchy-4-Stil mit **Filter nach Fenstertyp** — als
 Overlay-Plugin für die [Omarchy](https://omarchy.org)-Shell. Gebaut für den
 Radial-Mesh-Modus von
-[hypr-radial-mesh](https://github.com/KGasteier/hypr-radial-mesh), Fork von
+[hypr-radial-mesh](https://github.com/KGasteier/hypr-radial-mesh). Branch `radialmesh` von
 [omarchy-launchpad](https://github.com/KGasteier/omarchy-launchpad).
 
 ![6×6-Raster mit Typ-Filterleiste](docs/screenshot.png)
@@ -42,7 +42,7 @@ und Rahmen kommen aus den Menü-Tokens des aktiven Themas.
 ## Installation
 
 ```bash
-git clone https://github.com/KGasteier/radialmesh-launchpad.git
+git clone -b radialmesh https://github.com/KGasteier/omarchy-launchpad.git radialmesh-launchpad
 cd radialmesh-launchpad
 ./install.sh
 ```

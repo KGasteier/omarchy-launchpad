@@ -5,7 +5,7 @@
 An app launchpad in the Omarchy 4 style with **filtering by window type** —
 as an overlay plugin for the [Omarchy](https://omarchy.org) shell. Built for
 the radial-mesh mode of
-[hypr-radial-mesh](https://github.com/KGasteier/hypr-radial-mesh), fork of
+[hypr-radial-mesh](https://github.com/KGasteier/hypr-radial-mesh); branch `radialmesh` of
 [omarchy-launchpad](https://github.com/KGasteier/omarchy-launchpad).
 
 ![6×6 grid with type filter bar](docs/screenshot.png)
@@ -41,7 +41,7 @@ borders come from the menu tokens of the active theme.
 ## Installation
 
 ```bash
-git clone https://github.com/KGasteier/radialmesh-launchpad.git
+git clone -b radialmesh https://github.com/KGasteier/omarchy-launchpad.git radialmesh-launchpad
 cd radialmesh-launchpad
 ./install.sh
 ```
