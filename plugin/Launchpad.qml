@@ -1,5 +1,6 @@
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 import qs.Commons
@@ -30,6 +31,12 @@ import "Types.js" as Types
 // (bis zu `columns` Stueck), darunter das Raster alphabetisch. Sobald gesucht
 // wird, entfaellt die MRU-Zeile. Der MRU-Stand liegt als JSON in
 // ~/.local/state/radialmesh-launchpad/recent.json.
+//
+// Groesse: Spalten, Zeilen, Icongroesse und Kartenbreite lassen sich im
+// Plugin-Eintrag von ~/.config/omarchy/shell.json einstellen (siehe README):
+//   { "id": "community.radialmesh-launchpad", "columns": 5, "rows": 5, "iconSize": 32 }
+// Passt das Raster nicht auf den Bildschirm, nimmt die Karte von sich aus
+// Zeilen und Spalten weg - angeschnittene Zeilen gibt es nicht.
 
 Item {
   id: root
@@ -37,6 +44,23 @@ Item {
   property var shell: null
   property var manifest: null
   readonly property var appLibrary: root.shell ? root.shell.appLibrary : null
+  readonly property string pluginId: (root.manifest && root.manifest.id) || "community.radialmesh-launchpad"
+
+  // Eigener Eintrag unter "plugins" in shell.json. Die Shell beobachtet die
+  // Datei; Aenderungen greifen beim naechsten Oeffnen ohne Neustart.
+  readonly property var settings: {
+    var cfg = root.shell ? root.shell.shellConfig : null
+    var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+    for (var i = 0; i < list.length; i++)
+      if (list[i] && list[i].id === root.pluginId) return list[i]
+    return ({})
+  }
+  // Zahl aus den Einstellungen, auf [lo, hi] begrenzt; sonst Vorgabe.
+  function setting(key, def, lo, hi) {
+    var v = Number(root.settings[key])
+    if (root.settings[key] === undefined || !isFinite(v) || v <= 0) return def
+    return Math.max(lo, Math.min(hi, v))
+  }
 
   property bool opened: false
   property string filterText: ""
@@ -62,11 +86,13 @@ Item {
   // Zuletzt aufgebaute Zeilen je App-ID - Quelle fuer die MRU-Zeile.
   property var itemsById: ({})
 
-  // Zuletzt gestartete App-IDs, neueste zuerst.
+  // Zuletzt gestartete App-IDs, neueste zuerst. Gespeichert werden mehr,
+  // als die Zeile zeigt, damit eine breitere Einstellung nicht leer beginnt.
+  readonly property int recentKeep: 12
   property var recentIds: []
   readonly property string statePath: Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")
   readonly property string recentPath: statePath + "/radialmesh-launchpad/recent.json"
-  // Gilt die erste Rasterzeile als MRU-Zeile? Nur ohne Suchtext.
+  // MRU-Zeile nur ohne Suchtext.
   readonly property bool showRecent: root.filterText.length === 0
 
   FileView {
@@ -95,7 +121,7 @@ Item {
       try {
         var v = JSON.parse(text())
         if (!Array.isArray(v)) return
-        root.recentIds = v.filter(function(x) { return typeof x === "string" }).slice(0, root.columns)
+        root.recentIds = v.filter(function(x) { return typeof x === "string" }).slice(0, root.recentKeep)
         recentFile.setText(JSON.stringify(root.recentIds))
         if (root.opened) root.rebuildRecent()
       } catch (e) {}
@@ -104,7 +130,7 @@ Item {
 
   function rememberLaunch(appId) {
     var next = [appId]
-    for (var i = 0; i < root.recentIds.length && next.length < root.columns; i++)
+    for (var i = 0; i < root.recentIds.length && next.length < root.recentKeep; i++)
       if (root.recentIds[i] !== appId) next.push(root.recentIds[i])
     root.recentIds = next
     recentFile.setText(JSON.stringify(next))
@@ -121,43 +147,72 @@ Item {
   readonly property int cornerRadius: Style.cornerRadius
   property string fontFamily: Style.font.menuFamily
 
-  // Raster: 6 Spalten, 6 sichtbare Zeilen. Die Karte ist so breit wie das
-  // rofi-Vorbild (rund 61 % der Bildschirmbreite); die Zellbreite ergibt sich
-  // aus dem verfuegbaren Platz, damit die Spaltenzahl garantiert aufgeht -
+  // Raster, Vorgabe 6 x 6. Die Karte ist so breit wie das rofi-Vorbild (rund
+  // 61 % der Bildschirmbreite); die Zellbreite ergibt sich aus dem
+  // verfuegbaren Platz, damit die Spaltenzahl garantiert aufgeht -
   // Style.space() skaliert mit der Theme-Schrift, feste Werte gehen nicht auf.
   //
-  // Die Karte behaelt die Masse der 7x7-Fassung: 7 * 72 = 504 verteilt sich
-  // jetzt auf 6 * 78 Rasterzeilen plus 36 fuer die Punkteleiste. Das Icon
-  // waechst mit der Zeilenhoehe (40 * 78/72), die Beschriftung nicht - so
-  // entsteht der zusaetzliche Weissraum.
-  property int columns: 6
-  property int visibleRows: 6
-  // Icon kleiner als im Original (44), damit die Typflaeche darum herum
-  // in dieselbe Zeilenhoehe passt.
-  property int iconSize: Style.space(38)
-  property int iconPad: Style.space(8)
-  property int cellHeight: Style.space(78)
+  // Alle Zellmasse leiten sich von iconSize ab (Vorgabe 38): Typflaeche =
+  // Icon + 2 * iconPad, Zeile = Icon + 40 (Flaeche, Abstand, Beschriftung).
+  // Das Icon ist kleiner als im Original (44), damit die Typflaeche darum
+  // herum in dieselbe Zeilenhoehe passt.
+  readonly property int columns: Math.round(root.setting("columns", 6, 3, 10))
+  readonly property int rows: Math.round(root.setting("rows", 6, 2, 10))
+  readonly property int iconBase: Math.round(root.setting("iconSize", 38, 20, 96))
+  readonly property real widthFraction: root.setting("width", 0.615, 0.3, 1)
+
+  property int iconSize: Style.space(iconBase)
+  property int iconPad: Style.space(Math.max(4, Math.round(iconBase * 0.21)))
+  property int cellHeight: Style.space(iconBase + 40)
+  // Schmaler wird eine Zelle nie: Typflaeche plus etwas Luft fuer die
+  // Beschriftung. Reicht die Breite nicht, faellt eine Spalte weg.
+  property int minCellWidth: Style.space(iconBase + Math.max(4, Math.round(iconBase * 0.21)) * 2 + 30)
   // Streifen unter dem Raster fuer die "mehr da"-Punkte.
   property int indicatorHeight: Style.space(36)
   property int contentMargin: Style.spacing.panelPadding
   property int headerHeight: Math.max(Style.space(34), Style.font.title + Style.spacing.controlPaddingY * 2)
   property int contentSpacing: Style.spacing.md
   property int chipHeight: Math.max(Style.space(28), Style.font.body + Style.spacing.controlPaddingY * 2)
+  // Mindestabstand der Karte zum Bildschirmrand.
+  readonly property int screenMargin: Style.space(16)
 
-  property int cardWidth: Math.round(panel.width * 0.615)
-  property int cellWidth: Math.floor(resultGrid.width / columns)
-  // Hoehe so, dass genau visibleRows Reihen sichtbar sind - kein Rest,
-  // kein Anschnitt. contentTopInset/BottomInset der BorderSurface enthalten
-  // Rahmen UND Padding bereits.
-  property int cardHeight: Math.min(panel.height - Style.gapsOut * 2,
-    card.contentTopInset + card.contentBottomInset
-    + headerHeight + contentSpacing + (showRecent ? cellHeight : 0) + contentSpacing
-    + chipHeight + contentSpacing
-    + visibleRows * cellHeight + indicatorHeight)
+  readonly property int insetsH: card.contentLeftInset + card.contentRightInset
+  readonly property int insetsV: card.contentTopInset + card.contentBottomInset
+
+  // Breite: Anteil am Bildschirm, aber nie so schmal, dass die gewuenschten
+  // Spalten unter minCellWidth fallen - und nie breiter als der Schirm.
+  property int cardWidth: Math.min(panel.width - screenMargin * 2,
+    Math.max(Math.round(panel.width * widthFraction), columns * minCellWidth + insetsH))
+  readonly property int effectiveColumns: Math.max(2, Math.min(columns,
+    Math.floor((cardWidth - insetsH) / minCellWidth)))
+  // Beim Oeffnen kennt das Panel seine Breite noch nicht (erst 0, dann der
+  // Bildschirm) - die MRU-Zeile muss der endgueltigen Spaltenzahl folgen.
+  onEffectiveColumnsChanged: if (root.opened) root.rebuildRecent()
+  property int cellWidth: Math.floor(resultGrid.width / effectiveColumns)
+
+  // Hoehe: alles ausser dem Raster ist fest. Die MRU-Zeile ist immer
+  // eingerechnet, damit die Karte beim ersten Tastendruck nicht springt -
+  // beim Suchen bekommt das Raster ihren Platz (eine Reihe mehr).
+  readonly property int fixedHeight: insetsV + headerHeight + cellHeight + chipHeight
+    + contentSpacing * 3 + indicatorHeight
+  readonly property int effectiveRows: Math.max(1, Math.min(rows,
+    Math.floor((panel.height - screenMargin * 2 - fixedHeight) / cellHeight)))
+  property int cardHeight: fixedHeight + effectiveRows * cellHeight
+
+  // Monitor mit dem Fokus; ohne Treffer waehlt Quickshell selbst.
+  property var targetScreen: null
+  function focusedScreen() {
+    var m = Hyprland.focusedMonitor
+    if (!m) return null
+    var list = Quickshell.screens
+    for (var i = 0; i < list.length; i++) if (list[i].name === m.name) return list[i]
+    return null
+  }
 
   function open(payloadJson) {
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") || ({}) } catch (e) { payload = ({}) }
+    root.targetScreen = root.focusedScreen()
     root.opened = true
     root.filterText = ""
     root.activeType = (payload.type && Types.LABELS[payload.type]) ? String(payload.type) : "all"
@@ -177,7 +232,7 @@ Item {
   function dismiss() {
     root.opened = false
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "community.radialmesh-launchpad")
+      root.shell.hide(root.pluginId)
   }
 
   function toggle() {
@@ -212,7 +267,7 @@ Item {
   function rebuildRecent() {
     recentModel.clear()
     if (!root.showRecent) return
-    for (var r = 0; r < root.recentIds.length && recentModel.count < root.columns; r++) {
+    for (var r = 0; r < root.recentIds.length && recentModel.count < root.effectiveColumns; r++) {
       var hit = root.itemsById[root.recentIds[r]]
       if (hit) recentModel.append(hit)
     }
@@ -250,14 +305,13 @@ Item {
     // ListModel.append kopiert, die Objekte duerfen geteilt werden.
     if (root.filterText.length === 0) {
       var byId = {}
-      for (var k = 0; k < items.length; k++) { items[k].filler = false; byId[items[k].appId] = items[k] }
+      for (var k = 0; k < items.length; k++) byId[items[k].appId] = items[k]
       root.itemsById = byId
     }
     root.rebuildRecent()
 
     for (var j = 0; j < items.length; j++) {
       if (root.activeType !== "all" && items[j].typeList.indexOf("," + root.activeType + ",") < 0) continue
-      items[j].filler = false
       displayModel.append(items[j])
     }
     if (displayModel.count === 0) selectedIndex = 0
@@ -267,25 +321,13 @@ Item {
     })
   }
 
-  function isFiller(i) {
-    return i >= 0 && i < displayModel.count && displayModel.get(i).filler === true
-  }
-
-  // Erster waehlbarer Index (bei leerer MRU-Zeile ist das Zeile 2).
-  function firstSelectable() {
-    for (var i = 0; i < displayModel.count; i++) if (!isFiller(i)) return i
-    return 0
-  }
-
   function select(delta) {
     if (displayModel.count === 0) return
     if (!cursorActive) {
       cursorActive = true
-      selectedIndex = delta < 0 ? displayModel.count - 1 : firstSelectable()
+      selectedIndex = delta < 0 ? displayModel.count - 1 : 0
     } else {
-      var n = selectedIndex
-      do { n = (n + delta + displayModel.count) % displayModel.count } while (isFiller(n) && n !== selectedIndex)
-      selectedIndex = n
+      selectedIndex = (selectedIndex + delta + displayModel.count) % displayModel.count
     }
     resultGrid.positionViewAtIndex(selectedIndex, GridView.Contain)
   }
@@ -294,16 +336,9 @@ Item {
     if (displayModel.count === 0) return
     if (!cursorActive) {
       cursorActive = true
-      selectedIndex = delta < 0 ? displayModel.count - 1 : firstSelectable()
+      selectedIndex = delta < 0 ? displayModel.count - 1 : 0
     } else {
-      var n = selectedIndex + delta * columns
-      if (n < 0) n = 0
-      if (n >= displayModel.count) n = displayModel.count - 1
-      // In der MRU-Zeile auf einer Luecke gelandet: nach links zur letzten
-      // belegten Zelle ruecken; ist die Zeile leer, bleibt der Cursor.
-      while (n > 0 && isFiller(n)) n--
-      if (isFiller(n)) return
-      selectedIndex = n
+      selectedIndex = Math.max(0, Math.min(displayModel.count - 1, selectedIndex + delta * effectiveColumns))
     }
     resultGrid.positionViewAtIndex(selectedIndex, GridView.Contain)
   }
@@ -335,7 +370,6 @@ Item {
   function activateIndex(index) {
     if (index < 0 || index >= displayModel.count) return
     var row = displayModel.get(index)
-    if (row.filler) return
     root.dismiss()
     root.rememberLaunch(row.appId)
     if (root.appLibrary) root.appLibrary.launch(row.appId, row.label)
@@ -344,7 +378,7 @@ Item {
   function activateRecent(index) {
     if (index < 0 || index >= recentModel.count) return
     var row = recentModel.get(index)
-    if (row.filler || !row.appId) return
+    if (!row.appId) return
     root.dismiss()
     root.rememberLaunch(row.appId)
     if (root.appLibrary) root.appLibrary.launch(row.appId, row.label)
@@ -364,6 +398,7 @@ Item {
   PanelWindow {
     id: panel
     visible: root.opened
+    screen: root.targetScreen
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     WlrLayershell.namespace: "radialmesh-launchpad"
@@ -411,7 +446,7 @@ Item {
           else if (event.key === Qt.Key_Down) { root.selectRow(1); event.accepted = true }
           else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.cursorActive) root.activateIndex(root.selectedIndex)
-            else if (displayModel.count > 0) root.activateIndex(root.firstSelectable())
+            else if (displayModel.count > 0) root.activateIndex(0)
             event.accepted = true
           } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
             root.setFilter(root.filterText + event.text)
@@ -495,7 +530,6 @@ Item {
               needsMonogram: model.needsMonogram
               mono: model.mono
               hue: model.hue
-              filler: model.filler
               typeColor: model.typeKey ? Types.color(model.typeKey) : "transparent"
 
               width: root.cellWidth
@@ -530,12 +564,29 @@ Item {
           // Breite je Knopf = Inhalt + Polster; was an Kartenbreite uebrig
           // bleibt, wird gleichmaessig verteilt. Gleich breite Knoepfe liefen
           // ueber ("Terminals 2" passte nicht).
+          //
+          // Reicht die Breite auch so nicht (kleiner Schirm, wenige Spalten),
+          // entfallen Zahlen und Punkte (compact). Gerechnet wird mit
+          // FontMetrics statt mit den angezeigten Texten - sonst haengt die
+          // Entscheidung an dem, was sie selbst ausblendet, und kippt hin und her.
           readonly property int chipPad: Style.space(10)
-          property var naturalWidths: []
+          readonly property int gap: Style.space(5)
+          FontMetrics { id: labelFont; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; font.bold: true }
+          FontMetrics { id: countFont; font.family: root.fontFamily; font.pixelSize: Style.font.caption }
+          function sumWidths(withCounts) {
+            var vt = root.visibleTypes, sum = 0
+            for (var i = 0; i < vt.length; i++) {
+              // fett gemessen, damit der gewaehlte Knopf nicht ueberlaeuft
+              sum += labelFont.advanceWidth(Types.label(vt[i])) + chipPad * 2
+              if (withCounts) sum += countFont.advanceWidth(String(root.typeCounts[vt[i]] || 0)) + gap
+              if (withCounts && vt[i] !== "all") sum += Style.space(7) + gap
+            }
+            return Math.round(sum) + spacing * Math.max(0, vt.length - 1)
+          }
+          readonly property bool compact: sumWidths(true) > width
           readonly property int extraWidth: {
-            var n = root.visibleTypes.length, sum = 0
-            for (var i = 0; i < n; i++) sum += (naturalWidths[i] || 0) + chipPad * 2
-            return n > 0 ? Math.max(0, Math.floor((width - sum - spacing * (n - 1)) / n)) : 0
+            var n = root.visibleTypes.length
+            return n > 0 ? Math.max(0, Math.floor((width - sumWidths(!compact)) / n)) : 0
           }
 
           Repeater {
@@ -549,21 +600,16 @@ Item {
               width: chipContent.implicitWidth + chipRow.chipPad * 2 + chipRow.extraWidth
               height: chipRow.height
               radius: root.cornerRadius
-              color: Qt.rgba(tone.r, tone.g, tone.b, active ? 0.28 : (chipMouse.containsMouse ? 0.14 : 0.07))
+              color: Qt.rgba(tone.r, tone.g, tone.b, active ? 0.28 : (chipMouse.containsMouse ? 0.14 : (chipRow.compact ? 0.12 : 0.07)))
               border.width: active ? Math.max(1, Style.space(1)) : 0
               border.color: Qt.rgba(tone.r, tone.g, tone.b, 0.75)
 
               Row {
                 id: chipContent
                 anchors.centerIn: parent
-                spacing: Style.space(5)
-                onImplicitWidthChanged: {
-                  var w = chipRow.naturalWidths.slice()
-                  w[chip.index] = implicitWidth
-                  chipRow.naturalWidths = w
-                }
+                spacing: chipRow.gap
                 Rectangle {
-                  visible: chip.modelData !== "all"
+                  visible: chip.modelData !== "all" && !chipRow.compact
                   width: Style.space(7); height: width; radius: width / 2
                   color: chip.tone
                   anchors.verticalCenter: parent.verticalCenter
@@ -579,6 +625,7 @@ Item {
                   anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
+                  visible: !chipRow.compact
                   textFormat: Text.PlainText
                   text: String(root.typeCounts[chip.modelData] || 0)
                   color: root.foreground
@@ -603,8 +650,9 @@ Item {
         // Raster
         Item {
           width: parent.width
+          // Die Column ueberspringt die unsichtbare MRU-Zeile samt Abstand.
           height: parent.height - root.headerHeight - root.chipHeight
-            - (root.showRecent ? root.cellHeight : 0) - root.contentSpacing * 3
+            - (root.showRecent ? root.cellHeight + root.contentSpacing : 0) - root.contentSpacing * 2
 
           GridView {
             id: resultGrid
@@ -630,7 +678,6 @@ Item {
               needsMonogram: model.needsMonogram
               mono: model.mono
               hue: model.hue
-              filler: model.filler
               typeColor: model.typeKey ? Types.color(model.typeKey) : "transparent"
 
               width: root.cellWidth

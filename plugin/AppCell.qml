@@ -14,7 +14,6 @@ Rectangle {
   property bool needsMonogram: false
   property string mono: ""
   property int hue: 0
-  property bool filler: false          // leere Platzhalterzelle, nicht waehlbar
   property bool hasCursor: false
   property int iconSize: 40
   property int iconPad: 8               // Rand der Typflaeche um das Icon
@@ -27,13 +26,12 @@ Rectangle {
   signal activated()
 
   radius: Style.cornerRadius
-  color: hasCursor && !filler ? selectedBackground : "transparent"
+  color: hasCursor ? selectedBackground : "transparent"
 
   Column {
     anchors.centerIn: parent
     spacing: Style.space(4)
     width: parent.width
-    visible: !cell.filler
 
     Rectangle {
       id: typeTile
@@ -103,7 +101,6 @@ Rectangle {
 
   MouseArea {
     anchors.fill: parent
-    enabled: !cell.filler
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
     onContainsMouseChanged: if (containsMouse) cell.hovered()

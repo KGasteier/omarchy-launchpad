@@ -47,7 +47,12 @@ cd radialmesh-launchpad
 ```
 
 `SUPER + R` then opens the grid. The installer restarts the shell once
-(`omarchy restart shell`), which takes a few seconds.
+(`omarchy restart shell`), which takes a few seconds — but not while the
+screen is locked (that would orphan the lock); run `omarchy restart shell`
+after unlocking. If `SUPER + R` is already bound elsewhere, the script warns.
+
+It is also installed by
+[hypr-radial-mesh](https://github.com/udk-gwk/hypr-radial-mesh).
 
 **Replacing `omarchy-launchpad`**: run `./install.sh --uninstall` there
 first, then install this one. Hyprland must not see two `SUPER + R`
@@ -66,7 +71,7 @@ To remove:
 This removes only its own artifacts (plugin folder, binding file, the
 `require("hypr.radialmesh-launchpad")` block between markers in
 `hyprland.lua`, the `shell.json` entry, the MRU state). Before every edit of
-`hyprland.lua` a backup `hyprland.lua.bak.rmlaunchpad.<time>` is written.
+`hyprland.lua` a backup `hyprland.lua.bak.rmlaunchpad.<time>` is written; the five newest are kept.
 
 ## What lands where
 
@@ -113,13 +118,37 @@ omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"ai"}'
 `radialmesh-companion` opens the launchpad with the type of the neighbouring
 card when an empty cell is clicked.
 
-The shortcut lives in `~/.config/hypr/radialmesh-launchpad.lua`; column and
-row count, icon size and card width are properties at the top of
-`Launchpad.qml` (`columns`, `visibleRows`, `iconSize`, `cardWidth`). Card
-height follows `visibleRows * cellHeight + indicatorHeight` — if you change
-the row count, adjust `cellHeight` in the opposite direction to keep the
-card the same size. Changes in the plugin folder only take effect for
-overlays after `omarchy restart shell`.
+### Size and grid
+
+The default is a 6 × 6 grid at a bit over 60 % of the screen width. Adjust
+it in the plugin's own entry in `~/.config/omarchy/shell.json`, e. g. for
+smaller screens:
+
+```json
+"plugins": [
+  { "id": "community.radialmesh-launchpad", "columns": 5, "rows": 5, "iconSize": 30, "width": 0.42 }
+]
+```
+
+| Key | Default | Range | Meaning |
+|---|---|---|---|
+| `columns` | 6 | 3–10 | columns (also the length of the MRU row) |
+| `rows` | 6 | 2–10 | visible rows, more by scrolling |
+| `iconSize` | 38 | 20–96 | icon size in logical pixels; row height and type tile follow |
+| `width` | 0.615 | 0.3–1 | card width as a fraction of the screen width |
+
+The shell watches `shell.json`; new values apply the next time the
+launchpad opens, no restart needed.
+
+**Small resolutions adapt on their own:** the card opens on the focused
+monitor and always stays fully on screen. If the height is short it shows
+fewer rows (never a cut-off one), if the width is short, fewer columns. If
+the type buttons don't fit on one line, counts and colour dots are dropped
+and the buttons stay tinted. A 900 × 565 logical-pixel screen still shows
+6 × 2.
+
+The shortcut lives in `~/.config/hypr/radialmesh-launchpad.lua`.
+`./install.sh --no-bind` installs without a key binding.
 
 ## Known quirks
 

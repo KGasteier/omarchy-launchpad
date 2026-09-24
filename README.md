@@ -48,7 +48,13 @@ cd radialmesh-launchpad
 ```
 
 Danach öffnet `SUPER + R` das Raster. Die Shell wird beim Installieren
-einmal neu gestartet (`omarchy restart shell`), das dauert wenige Sekunden.
+einmal neu gestartet (`omarchy restart shell`), das dauert wenige Sekunden –
+bei gesperrtem Bildschirm nicht (das ließe die Sperre verwaist zurück); dann
+nach dem Entsperren `omarchy restart shell` ausführen. Ist `SUPER + R` schon
+anders belegt, warnt das Skript.
+
+Mitinstalliert wird es auch von
+[hypr-radial-mesh](https://github.com/udk-gwk/hypr-radial-mesh).
 
 **Tausch gegen `omarchy-launchpad`**: zuerst dort `./install.sh --uninstall`
 ausführen, dann dieses hier installieren. Beide auf `SUPER + R` darf Hyprland
@@ -67,7 +73,7 @@ Entfernen:
 Das nimmt nur die eigenen Artefakte heraus (Plugin-Ordner, Bindungs-Datei,
 der `require`-Block in `hyprland.lua` in Markierungen, `shell.json`-Eintrag,
 MRU-Stand). Vor jedem Eingriff in `hyprland.lua` wird eine Sicherung
-`hyprland.lua.bak.rmlaunchpad.<zeit>` angelegt.
+`hyprland.lua.bak.rmlaunchpad.<zeit>` angelegt; die fünf jüngsten bleiben.
 
 ## Was wo landet
 
@@ -115,13 +121,37 @@ omarchy-shell shell toggle community.radialmesh-launchpad '{"type":"ai"}'
 `radialmesh-companion` ruft das Launchpad mit dem Typ der Nachbarskarte auf,
 wenn eine leere Zelle angeklickt wird.
 
-Tastenkombination in `~/.config/hypr/radialmesh-launchpad.lua`; Spalten- und
-Zeilenzahl, Icon-Größe und Kartenbreite stehen als Properties am Anfang von
-`Launchpad.qml` (`columns`, `visibleRows`, `iconSize`, `cardWidth`). Die
-Kartenhöhe folgt aus `visibleRows * cellHeight + indicatorHeight` — wer die
-Zeilenzahl ändert, passt `cellHeight` gegenläufig an, wenn die Karte gleich
-groß bleiben soll. Änderungen im Launchpad-Ordner greifen bei Overlays erst
-nach `omarchy restart shell`.
+### Größe und Raster
+
+Vorgabe ist ein Raster aus 6 × 6 Programmen, gut 60 % der Bildschirmbreite.
+Einstellen lässt es sich im eigenen Plugin-Eintrag in
+`~/.config/omarchy/shell.json`, z. B. für kleinere Bildschirme:
+
+```json
+"plugins": [
+  { "id": "community.radialmesh-launchpad", "columns": 5, "rows": 5, "iconSize": 30, "width": 0.42 }
+]
+```
+
+| Schlüssel | Vorgabe | Bereich | Bedeutung |
+|---|---|---|---|
+| `columns` | 6 | 3–10 | Spalten (auch Länge der MRU-Zeile) |
+| `rows` | 6 | 2–10 | sichtbare Zeilen, weitere per Scrollen |
+| `iconSize` | 38 | 20–96 | Icongröße in logischen Pixeln; Zeilenhöhe und Typfläche folgen |
+| `width` | 0.615 | 0.3–1 | Kartenbreite als Anteil der Bildschirmbreite |
+
+Die Shell beobachtet `shell.json`; die neuen Werte gelten beim nächsten
+Öffnen, ohne Neustart.
+
+**Kleine Auflösungen passen sich von selbst an:** Die Karte erscheint auf
+dem Monitor mit dem Fokus und bleibt immer ganz auf dem Bildschirm. Reicht
+die Höhe nicht, zeigt sie weniger Zeilen (nie eine angeschnittene), reicht
+die Breite nicht, weniger Spalten. Passen die Typknöpfe nicht in eine Zeile,
+entfallen Zähler und Farbpunkte, die Knöpfe bleiben farbig getönt. Ein
+Bildschirm mit 900 × 565 logischen Pixeln zeigt so noch 6 × 2.
+
+Die Tastenkombination steht in `~/.config/hypr/radialmesh-launchpad.lua`.
+`./install.sh --no-bind` installiert ohne Tastenbelegung.
 
 ## Bekannte Eigenheiten
 

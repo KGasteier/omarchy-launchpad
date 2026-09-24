@@ -4,6 +4,9 @@
 # Eigene Plugin-ID und eigener MRU-Stand, laeuft also auch nebenbei.
 # Aufruf: ./install.sh              installieren / aktualisieren
 #         ./install.sh --uninstall  restlos entfernen
+#         ./install.sh --no-bind    ohne Tastenbelegung (z. B. wenn SUPER + R
+#                                   anders vergeben ist); Aufruf dann per
+#                                   omarchy-shell oder eigener Bindung
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,12 +22,22 @@ MARK_END="-- <<< radialmesh-launchpad <<<"
 strip_block() {
   [[ -f "$MAIN" ]] || return 0
   if grep -qF -- "$MARK_BEGIN" "$MAIN"; then
-    cp "$MAIN" "$MAIN.bak.rmlaunchpad.$(date +%s)"
+    backup_main
     sed -i "\\|$MARK_BEGIN|,\\|$MARK_END|d" "$MAIN"
     # Leerzeilen am Dateiende einsammeln, sonst wachsen sie mit jedem Lauf.
     sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$MAIN"
   fi
 }
+
+# Sicherung von hyprland.lua; nur die fuenf juengsten bleiben liegen
+# (jeder Lauf legt eine an, nach einem Tag waren es elf).
+backup_main() {
+  cp "$MAIN" "$MAIN.bak.rmlaunchpad.$(date +%s)"
+  ls -1t "$MAIN".bak.rmlaunchpad.* 2>/dev/null | tail -n +6 | xargs -r rm -f --
+}
+
+NO_BIND=0
+[[ "${1:-}" == "--no-bind" ]] && NO_BIND=1
 
 if [[ "${1:-}" == "--uninstall" ]]; then
   omarchy-shell shell hide "$PLUGIN_ID" >/dev/null 2>&1 || true
@@ -64,10 +77,24 @@ cp -a "$SRC/plugin" "$PLUGIN_DIR"
 mkdir -p "$STATE/radialmesh-launchpad"
 
 # --- Hyprland-Binding ------------------------------------------------------
-install -m 644 "$SRC/hypr/radialmesh-launchpad.lua" "$HYPR/radialmesh-launchpad.lua"
 strip_block
-cp "$MAIN" "$MAIN.bak.rmlaunchpad.$(date +%s)"
-printf '\n%s\nrequire("hypr.radialmesh-launchpad")\n%s\n' "$MARK_BEGIN" "$MARK_END" >> "$MAIN"
+if (( NO_BIND )); then
+  rm -f "$HYPR/radialmesh-launchpad.lua"
+else
+  # Ist SUPER + R schon anders belegt (meist vom Original-Launchpad), gaebe
+  # es zwei Bindungen auf einer Taste. Lua-Bindungen zeigen in hyprctl binds
+  # nur eine Funktionsnummer, deshalb in den Config-Dateien suchen. Nur
+  # warnen - die Bindung des Originals entfernt dessen --uninstall.
+  if grep -lE '"SUPER *\+ *R"' "$HYPR"/*.lua 2>/dev/null | grep -v "/radialmesh-launchpad.lua$" | grep -q .; then
+    echo "Warnung: SUPER + R ist schon belegt in:" >&2
+    grep -lE '"SUPER *\+ *R"' "$HYPR"/*.lua | grep -v "/radialmesh-launchpad.lua$" | sed 's/^/           /' >&2
+    echo "         Doppelt belegt loest die Taste beides aus. omarchy-launchpad mit" >&2
+    echo "         dessen ./install.sh --uninstall entfernen, oder hier --no-bind nehmen." >&2
+  fi
+  install -m 644 "$SRC/hypr/radialmesh-launchpad.lua" "$HYPR/radialmesh-launchpad.lua"
+  backup_main
+  printf '\n%s\nrequire("hypr.radialmesh-launchpad")\n%s\n' "$MARK_BEGIN" "$MARK_END" >> "$MAIN"
+fi
 
 # --- Aktivieren ------------------------------------------------------------
 # Traegt das Plugin unter "plugins" in ~/.config/omarchy/shell.json ein;
@@ -89,7 +116,9 @@ fi
 # Nie bei gesperrtem Bildschirm: Die Sperre lebt im Shell-Prozess, ein
 # Neustart hinterlaesst sie verwaist ("lock-stranded") - die Sitzung war
 # danach nur noch per Neustart der VM zu retten (2026-09-24).
-if [[ "$(omarchy-shell lock isLocked 2>/dev/null)" == "true" ]]; then
+if ! omarchy-shell shell ping >/dev/null 2>&1; then
+  : # Shell laeuft nicht (z. B. Installation aus der Konsole) - sie laedt beim Start alles neu.
+elif [[ "$(omarchy-shell lock isLocked 2>/dev/null)" == "true" ]]; then
   echo "Hinweis: Bildschirm gesperrt - Shell-Neustart ausgelassen." >&2
   echo "         Nach dem Entsperren: omarchy restart shell" >&2
 else
@@ -107,7 +136,7 @@ hyprctl reload >/dev/null 2>&1 || true
 cat <<EOF
 Radial Mesh Launchpad installiert.
   Plugin:   $PLUGIN_DIR
-  Tasten:   SUPER + R  (aendern in $HYPR/radialmesh-launchpad.lua)
+  Tasten:   $( ((NO_BIND)) && echo "keine (--no-bind)" || echo "SUPER + R  (aendern in $HYPR/radialmesh-launchpad.lua)")
   Aufruf:   omarchy-shell shell toggle $PLUGIN_ID
   MRU:      $STATE/radialmesh-launchpad/recent.json
   Typ vorwaehlen: omarchy-shell shell toggle $PLUGIN_ID '{"type":"ai"}'
