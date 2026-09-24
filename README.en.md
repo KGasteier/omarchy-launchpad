@@ -47,8 +47,9 @@ cd radialmesh-launchpad
 ```
 
 `SUPER + R` then opens the grid. The installer restarts the shell once
-(`omarchy restart shell`), which takes a few seconds — but not while the
-screen is locked (that would orphan the lock); run `omarchy restart shell`
+(`omarchy restart shell`), which takes a few seconds. While the screen is
+locked the script aborts without changing anything — merely copying the
+plugin files reloads the shell and would orphan the lock; just run it again
 after unlocking. If `SUPER + R` is already bound elsewhere, the script warns.
 
 It is also installed by

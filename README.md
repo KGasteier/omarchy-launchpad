@@ -48,9 +48,10 @@ cd radialmesh-launchpad
 ```
 
 Danach öffnet `SUPER + R` das Raster. Die Shell wird beim Installieren
-einmal neu gestartet (`omarchy restart shell`), das dauert wenige Sekunden –
-bei gesperrtem Bildschirm nicht (das ließe die Sperre verwaist zurück); dann
-nach dem Entsperren `omarchy restart shell` ausführen. Ist `SUPER + R` schon
+einmal neu gestartet (`omarchy restart shell`), das dauert wenige Sekunden.
+Bei gesperrtem Bildschirm bricht das Skript ohne Änderung ab – schon das
+Kopieren der Plugin-Dateien lädt die Shell neu und ließe die Sperre verwaist
+zurück; nach dem Entsperren einfach erneut aufrufen. Ist `SUPER + R` schon
 anders belegt, warnt das Skript.
 
 Mitinstalliert wird es auch von

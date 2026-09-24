@@ -39,6 +39,17 @@ backup_main() {
 NO_BIND=0
 [[ "${1:-}" == "--no-bind" ]] && NO_BIND=1
 
+# Nie bei gesperrtem Bildschirm: Die Sperre lebt im Shell-Prozess. Schon das
+# Kopieren ins Plugin-Verzeichnis loest per inotify ein Neuladen der Shell aus,
+# das die Sperre verwaist ("lock-stranded") - beim Zurueckkehren brach die
+# Shell dann mit "Tried to show lockscreen surfaces without active lock" ab
+# (2026-09-24, 13:08 Installation, 13:28 SIGABRT). Deshalb vor jeder Aenderung
+# abbrechen, auch vor --uninstall.
+if [[ "$(omarchy-shell lock isLocked 2>/dev/null)" == "true" ]]; then
+  echo "Bildschirm gesperrt - nichts geaendert. Nach dem Entsperren erneut aufrufen." >&2
+  exit 1
+fi
+
 if [[ "${1:-}" == "--uninstall" ]]; then
   omarchy-shell shell hide "$PLUGIN_ID" >/dev/null 2>&1 || true
   # Nimmt den Eintrag unter "plugins" in shell.json wieder heraus.
@@ -112,15 +123,9 @@ fi
 # omarchy-restart-shell die neue zu frueh; sie bricht mit "An instance of this
 # configuration is already running" ab und die Leiste bleibt weg. Deshalb
 # pruefen und notfalls einmal nachstarten.
-#
-# Nie bei gesperrtem Bildschirm: Die Sperre lebt im Shell-Prozess, ein
-# Neustart hinterlaesst sie verwaist ("lock-stranded") - die Sitzung war
-# danach nur noch per Neustart der VM zu retten (2026-09-24).
+# Gesperrt kann der Bildschirm hier nicht sein, das prueft der Anfang des Skripts.
 if ! omarchy-shell shell ping >/dev/null 2>&1; then
   : # Shell laeuft nicht (z. B. Installation aus der Konsole) - sie laedt beim Start alles neu.
-elif [[ "$(omarchy-shell lock isLocked 2>/dev/null)" == "true" ]]; then
-  echo "Hinweis: Bildschirm gesperrt - Shell-Neustart ausgelassen." >&2
-  echo "         Nach dem Entsperren: omarchy restart shell" >&2
 else
   omarchy restart shell >/dev/null 2>&1 || true
   sleep 2
