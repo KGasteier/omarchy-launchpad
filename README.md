@@ -173,6 +173,12 @@ Die Tastenkombination steht in `~/.config/hypr/radialmesh-launchpad.lua`.
   Nerd-Schrift erscheint ein Ersatzkästchen (`ttf-jetbrains-mono-nerd`
   hilft).
 - Die Suche zeigt nur die Treffer, keine MRU-Zeile — wie im Original.
+- **Leeres Raster („Keine Programme vom Typ Alle“)** gibt es seit 0.3.2 nicht
+  mehr: Fehlt der Shell-Dienst `shell.appLibrary` oder liefert er keine
+  Einträge (beobachtet auf einer frisch installierten Omarchy-VM), liest das
+  Launchpad die `.desktop`-Einträge selbst (Quickshell `DesktopEntries`,
+  eigener Icon-Index, Start per `gtk-launch`). Ausgeblendete Einträge aus
+  `launcher.hides` greifen in diesem Rückfall nicht, nur `NoDisplay`.
 - Editoren, Viewer und System haben **keine eigenen Knöpfe** (sie wären mit
   `GUIs` doppelt); ihre Farbe unterscheidet sie trotzdem.
 

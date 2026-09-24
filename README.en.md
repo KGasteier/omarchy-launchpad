@@ -167,6 +167,12 @@ The shortcut lives in `~/.config/hypr/radialmesh-launchpad.lua`.
 - The magnifier in the search field is a Nerd Font glyph (`U+F002`); without
   a Nerd Font a placeholder box appears (`ttf-jetbrains-mono-nerd` helps).
 - Search shows only the hits, no MRU row — like the original.
+- **Empty grid ("no programs of type All")** no longer happens since 0.3.2:
+  if the shell service `shell.appLibrary` is missing or returns no entries
+  (seen on a freshly installed Omarchy VM), the launchpad reads the
+  `.desktop` entries itself (Quickshell `DesktopEntries`, its own icon index,
+  launch via `gtk-launch`). Hidden entries from `launcher.hides` are not
+  applied in this fallback, only `NoDisplay`.
 - Editors, viewers and system tiles have **no buttons of their own** (they
   would duplicate `GUIs`); their tint still tells them apart.
 

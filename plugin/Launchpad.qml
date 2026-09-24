@@ -44,6 +44,77 @@ Item {
   property var shell: null
   property var manifest: null
   readonly property var appLibrary: root.shell ? root.shell.appLibrary : null
+  // Rueckfall ohne shell.appLibrary (aeltere Omarchy-4-Staende, dort ist der Dienst
+  // noch nicht injiziert): Liste direkt aus DesktopEntries, Icons ueber Quickshell,
+  // Start per gtk-launch. Sonst blieb das Raster leer ("Keine Programme vom Typ Alle").
+  // Der Shell-Dienst wird nur genommen, wenn er die erwartete Schnittstelle hat
+  // und beim letzten Oeffnen Eintraege lieferte (libEmpty, gesetzt in open()).
+  property bool libEmpty: false
+  readonly property bool libUsable: !!root.appLibrary && typeof root.appLibrary.sortedEntries === "function"
+                                     && typeof root.appLibrary.launch === "function" && !root.libEmpty
+  readonly property var apps: root.libUsable ? root.appLibrary : fallbackLibrary
+  QtObject {
+    id: fallbackLibrary
+    signal appsChanged()
+    function sortedEntries(query) {
+      var all = DesktopEntries.applications.values || []
+      var q = String(query || "").toLowerCase().trim()
+      var out = []
+      for (var i = 0; i < all.length; i++) {
+        var e = all[i]
+        if (!e || e.noDisplay) continue
+        var name = String(e.name || e.id || "")
+        if (q) {
+          var hay = [name, e.genericName, e.comment, e.id, (e.keywords || []).join ? e.keywords.join(" ") : ""].join(" ").toLowerCase()
+          var terms = q.split(/\s+/), ok = true
+          for (var k = 0; k < terms.length; k++) if (hay.indexOf(terms[k]) < 0) { ok = false; break }
+          if (!ok) continue
+        }
+        out.push({ entry: e, score: 0, key: name.toLowerCase(), name: name })
+      }
+      out.sort(function(a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0 })
+      return out
+    }
+    // Icon-Index wie im Shell-Dienst: */apps/* und */devices/* aller XDG-Icon-
+    // Verzeichnisse plus /usr/share/pixmaps, SVG vor PNG, erster Treffer gewinnt.
+    property var iconIndex: ({})
+    function iconSource(icon) {
+      var v = String(icon || "")
+      if (v.indexOf("file://") === 0 || v.indexOf("image://") === 0) return v
+      if (v.charAt(0) === "/") return "file://" + v
+      if (v && iconIndex[v]) return "file://" + iconIndex[v]
+      var themed = v ? Quickshell.iconPath(v, true) : ""
+      return themed.length > 0 ? themed : Quickshell.iconPath("application-x-executable", true)
+    }
+    function entryName(e) { return String((e && e.name) || (e && e.id) || "") }
+    function refreshIcons() { if (!iconScan.running) iconScan.running = true }
+    function launch(id, name) {
+      if (!id) return
+      Quickshell.execDetached(["sh", "-c", "uwsm-app -- gtk-launch \"$1\" || gtk-launch \"$1\"", "sh", String(id) + ".desktop"])
+    }
+  }
+  Process {
+    id: iconScan
+    command: ["bash", "-c", 'dirs="$HOME/.icons $HOME/.local/share/icons"; IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS; for ext in svg png; do for base in $dirs; do [[ -d $base ]] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) -name "*.$ext" 2>/dev/null; done; find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null; done']
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var idx = ({})
+        var lines = this.text.split("\n")
+        for (var i = 0; i < lines.length; i++) {
+          var f = lines[i]
+          if (!f) continue
+          var n = f.substring(f.lastIndexOf("/") + 1).replace(/\.(svg|png)$/, "")
+          if (!idx[n]) idx[n] = f
+        }
+        fallbackLibrary.iconIndex = idx
+        fallbackLibrary.appsChanged()
+      }
+    }
+  }
+  Connections {
+    target: root.libUsable ? null : DesktopEntries.applications
+    function onValuesChanged() { fallbackLibrary.appsChanged() }
+  }
   readonly property string pluginId: (root.manifest && root.manifest.id) || "community.radialmesh-launchpad"
 
   // Eigener Eintrag unter "plugins" in shell.json. Die Shell beobachtet die
@@ -226,7 +297,18 @@ Item {
     root.extraType = Types.BUTTONS.indexOf(root.activeType) < 0 ? root.activeType : ""
     root.selectedIndex = 0
     root.cursorActive = false
-    if (root.appLibrary) root.appLibrary.refreshIcons()
+    // Liefert der Shell-Dienst nichts, obwohl es Desktop-Eintraege gibt, auf den
+    // eigenen Rueckfall wechseln (Bericht 2026-09-24: Raster auf frischer VM leer).
+    if (root.appLibrary && !root.libEmpty) {
+      var probe = []
+      try { probe = root.appLibrary.sortedEntries("") || [] } catch (err) { probe = [] }
+      if (probe.length === 0 && (DesktopEntries.applications.values || []).length > 0) {
+        console.warn("radialmesh-launchpad: shell.appLibrary liefert keine Programme - nutze DesktopEntries")
+        root.libEmpty = true
+      }
+    }
+    if (!root.libUsable && Object.keys(fallbackLibrary.iconIndex).length === 0) fallbackLibrary.refreshIcons()
+    else root.apps.refreshIcons()
     root.refreshCounts()
     root.rebuildDisplay()
     recentFile.reload()
@@ -259,8 +341,8 @@ Item {
   // Knopfleiste beim Tippen nicht springt. Nur beim Oeffnen und wenn sich die
   // App-Liste aendert.
   function refreshCounts() {
-    if (!root.appLibrary) return
-    var all = root.appLibrary.sortedEntries("")
+    if (!root.apps) return
+    var all = root.apps.sortedEntries("")
     var counts = {}
     for (var c = 0; c < all.length; c++) {
       var ts = root.typesOf(all[c].entry)
@@ -283,22 +365,22 @@ Item {
 
   function rebuildDisplay() {
     displayModel.clear()
-    if (!root.appLibrary) return
+    if (!root.apps) return
     // sortedEntries liefert Wrapper { entry, score, key, name } - der
     // eigentliche Desktop-Eintrag steckt in .entry.
-    var rows = root.appLibrary.sortedEntries(root.filterText)
+    var rows = root.apps.sortedEntries(root.filterText)
     var items = []
     for (var i = 0; i < rows.length; i++) {
       var e = rows[i].entry
       var types = root.typesOf(e)
-      var src = root.appLibrary.iconSource(e.icon)
+      var src = root.apps.iconSource(e.icon)
       items.push({
         typeKey: types[0] || "gui",
         // Mit Kommas umrahmt, damit indexOf(",tui,") eindeutig trifft;
         // ListModel speichert keine Arrays.
         typeList: "," + types.join(",") + ",",
         appId: String(e.id || ""),
-        label: root.appLibrary.entryName(e),
+        label: root.apps.entryName(e),
         iconKey: String(e.icon || ""),
         iconSource: src,
         // Kein Icon oder nur der generische Fallback: Monogramm-Kachel.
@@ -380,7 +462,7 @@ Item {
     var row = displayModel.get(index)
     root.dismiss()
     root.rememberLaunch(row.appId)
-    if (root.appLibrary) root.appLibrary.launch(row.appId, row.label)
+    if (root.apps) root.apps.launch(row.appId, row.label)
   }
 
   function activateRecent(index) {
@@ -389,14 +471,15 @@ Item {
     if (!row.appId) return
     root.dismiss()
     root.rememberLaunch(row.appId)
-    if (root.appLibrary) root.appLibrary.launch(row.appId, row.label)
+    if (root.apps) root.apps.launch(row.appId, row.label)
   }
 
   ListModel { id: displayModel }
   ListModel { id: recentModel }
 
   Connections {
-    target: root.appLibrary
+    target: root.apps
+    ignoreUnknownSignals: true
     function onAppsChanged() {
       root.typeCache = ({})
       if (root.opened) { root.refreshCounts(); root.rebuildDisplay() }

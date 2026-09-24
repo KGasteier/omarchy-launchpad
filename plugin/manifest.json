@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "community.radialmesh-launchpad",
   "name": "Radial Mesh Launchpad",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": "Klaus Gasteier",
   "description": "App-Launchpad fuer den Radial-Mesh-Modus: Filter nach Fenstertyp, Icons in Typfarbe",
   "kinds": [
