@@ -1,4 +1,4 @@
-**[Deutsch](README.md)** · English
+[Deutsch](README.md) · **English**
 
 # Radial Mesh Launchpad
 
