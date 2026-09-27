@@ -105,6 +105,20 @@ Editors, viewers and system tiles keep their own colour type (blue, violet,
 grey) but stay reachable through the buttons above — they are GUIs as well.
 Hand assignments live in `plugin/Types.js` (`OVERRIDES`, keyed by desktop ID).
 
+> **After every change to `Types.js` or any other plugin file:** copy the
+> file into the plugin folder (or run `./install.sh`) **and then
+> `omarchy restart shell`**. The shell keeps loaded QML in memory; disabling
+> and re-enabling the plugin is **not** enough, as nothing is re-parsed.
+> Without a restart the launchpad keeps showing the old classification while
+> a test against the file already reports the new one — a mismatch that
+> easily sends you looking in the wrong place.
+
+If an `OVERRIDES` entry has no effect, the desktop ID is the usual cause:
+depending on the app service it arrives with or without `.desktop` and in a
+different spelling. A rule on the launched program is more robust, the way
+`FILE_MANAGERS` and `WEB_AGENTS` do it in `Types.js` — `execName(exec)`
+yields the program name without path and arguments.
+
 ## Invocation and customization
 
 By hand or from scripts, optionally with a preselected type:
@@ -161,7 +175,10 @@ The shortcut lives in `~/.config/hypr/radialmesh-launchpad.lua`.
 
 - **Hot reload does not work for this overlay.** The shell notices changes
   in the plugin folder (inotify), but the loaded overlay instance stays as
-  it is. After changes: `omarchy restart shell`.
+  it is. After changes: `omarchy restart shell`. This applies to every
+  plugin file, `Types.js` included. `omarchy-shell shell enablePlugin` or
+  `setPluginEnabled false/true` does not help either — both only toggle the
+  plugin without re-reading the QML.
 - **Symlinks instead of a copy** in the plugin folder are not seen by the
   watcher — `install.sh` copies for that reason.
 - The magnifier in the search field is a Nerd Font glyph (`U+F002`); without

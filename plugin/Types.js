@@ -54,6 +54,13 @@ var OVERRIDES = {
   "org.gnome.DiskUtility": ["config", "gui"]
 }
 
+// Agenten, deren Oberflaeche im Browser statt im Terminal laeuft: erkannt am
+// gestarteten Programm, nicht an der Desktop-ID (die je nach App-Dienst mit
+// oder ohne .desktop kommt). dsh-web ist der Wrapper um `dsh web` (DeepSeek
+// Harness), pi-ui die Oberflaeche des Pi-Agenten - beide sind KI-Agenten und
+// zugleich Webview, wie Claude Code Agent und TUI ist.
+var WEB_AGENTS = /^(dsh-web|pi-ui)$/
+
 // Programmnamen bekannter Dateimanager (grafisch und im Terminal).
 var FILE_MANAGERS = /^(nautilus|nemo|thunar|dolphin|pcmanfm(-qt)?|caja|yazi|ranger|lf|nnn|mc|ytree|superfile|spf)$/
 
@@ -103,6 +110,11 @@ function classify(entry) {
   // die Omarchy-Agent-Oberflaeche. Sie laufen im Terminal - also auch TUI.
   var agent = /--app-id[= ]TUI\.agent\b/.test(exec) || /org\.omarchy\.agent\b/.test(exec)
   if (agent) { set.ai = true; set.tui = true }
+
+  // Agenten mit Browser-Oberflaeche: Agent, aber kein TUI. Die Webview-Typung
+  // kommt unten aus Categories/Exec dazu; ai steht in PRIMARY_ORDER davor und
+  // faerbt deshalb - gesucht wird ein Agent unter "Agents".
+  if (WEB_AGENTS.test(execName(exec))) set.ai = true
 
   if (has(cats, "terminalemulator")) set.terminal = true
 

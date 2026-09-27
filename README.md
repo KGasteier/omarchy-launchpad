@@ -108,6 +108,20 @@ Violett, Grau), sind aber über die Knöpfe oben erreichbar — sie sind zugleic
 GUI. Zuordnung von Hand in `plugin/Types.js` (`OVERRIDES`, Schlüssel ist die
 Desktop-ID).
 
+> **Nach jeder Änderung an `Types.js` oder einer anderen Plugin-Datei:**
+> Datei ins Plugin-Verzeichnis kopieren (oder `./install.sh`) **und dann
+> `omarchy restart shell`**. Die Shell hält geladenes QML im Speicher; das
+> Plugin ab- und wieder anzuschalten genügt **nicht**, da dabei nichts neu
+> geparst wird. Ohne Neustart zeigt das Launchpad weiter die alte Einteilung,
+> während ein Test gegen die Datei schon die neue meldet — eine Abweichung,
+> die leicht in die falsche Richtung führt.
+
+Greift ein `OVERRIDES`-Eintrag nicht, liegt es meist an der Desktop-ID: je
+nach App-Dienst kommt sie mit oder ohne `.desktop` und in anderer
+Schreibweise. Robuster ist eine Regel am gestarteten Programm, wie sie
+`FILE_MANAGERS` und `WEB_AGENTS` in `Types.js` benutzen — `execName(exec)`
+liefert den Programmnamen ohne Pfad und Argumente.
+
 ## Aufruf und Anpassen
 
 Von Hand oder aus Skripten, auch mit vor gewähltem Typ:
@@ -166,7 +180,10 @@ Die Tastenkombination steht in `~/.config/hypr/radialmesh-launchpad.lua`.
 - **Hot Reload greift bei diesem Overlay nicht.** Die Shell erkennt
   Änderungen im Launchpad-Ordner (inotify), die geladene
   Overlay-Instanz bleibt aber bestehen. Nach Änderungen:
-  `omarchy restart shell`.
+  `omarchy restart shell`. Das gilt für jede Plugin-Datei, auch für
+  `Types.js`. Auch `omarchy-shell shell enablePlugin` bzw.
+  `setPluginEnabled false/true` hilft nicht — beides schaltet das Plugin nur
+  um, ohne das QML neu zu lesen.
 - **Kein Symlink statt Kopie** im Launchpad-Ordner wird von der Überwachung
   nicht gesehen — `install.sh` kopiert deshalb.
 - Die Lupe im Suchfeld ist eine Nerd-Font-Glyphe (`U+F002`); ohne
