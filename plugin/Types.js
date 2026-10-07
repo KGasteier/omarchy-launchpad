@@ -115,6 +115,8 @@ function classify(entry) {
   // kommt unten aus Categories/Exec dazu; ai steht in PRIMARY_ORDER davor und
   // faerbt deshalb - gesucht wird ein Agent unter "Agents".
   if (WEB_AGENTS.test(execName(exec))) set.ai = true
+  // Desktop-Agent: primaer Agent, zusaetzlich GUI.
+  if (execName(exec) === "pi-lite" || id === "pi-lite" || id === "pi-lite.desktop" || has(cats, "x-agent")) set.ai = true
 
   if (has(cats, "terminalemulator")) set.terminal = true
 
