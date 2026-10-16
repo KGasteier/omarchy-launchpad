@@ -14,7 +14,7 @@
 // erscheinen). "all" steht immer vorn. Editor, Viewer und Config sind nur
 // Farbtypen: Ihre Programme sind zugleich GUI oder TUI und ueber diese
 // Knoepfe erreichbar. Mehr Knoepfe passen nicht in die Kartenbreite.
-var BUTTONS = ["all", "terminal", "tui", "ai", "gui", "webview", "files"]
+var BUTTONS = ["all", "craft", "terminal", "tui", "ai", "gui", "webview", "files"]
 
 var LABELS = {
   all: "Alle",
@@ -26,7 +26,8 @@ var LABELS = {
   files: "Files",
   editor: "Editoren",
   viewer: "Viewer",
-  config: "System"
+  config: "System",
+  craft: "craft"
 }
 
 // Farben wie radialmesh.lua M.config.colors (Hex ohne #).
@@ -39,14 +40,15 @@ var COLORS = {
   viewer:   "c79bd8",   // Violett  - Medien
   files:    "e6cf7a",   // Sand     - Dateien
   config:   "9aa6b2",   // Grau     - Einstellungen
-  gui:      "d68a92"    // Rose     - sonstige GUI
+  gui:      "d68a92",   // Rose     - sonstige GUI
+  craft:    "f0b45a"    // Bernstein - *craft-Programme (nur Filter, faerbt nie die Karte)
 }
 
 // Welcher Typ faerbt, wenn ein Programm mehrere hat. Entspricht der
 // Mesh-Logik: Agent-Terminal vor TUI (Klasse TUI.agent -> ai), TUI vor
 // Webview (w3m ist im Mesh org.omarchy.w3m -> tui), die spezifischen
 // GUI-Typen vor dem Sammeltyp gui.
-var PRIMARY_ORDER = ["ai", "tui", "terminal", "webview", "files", "editor", "viewer", "config", "gui"]
+var PRIMARY_ORDER = ["ai", "tui", "terminal", "webview", "files", "editor", "viewer", "config", "gui", "craft"]
 
 // Handverlesene Zuordnungen, Schluessel ist die Desktop-ID (Dateiname ohne
 // .desktop). Ueberschreibt die Regeln vollstaendig.
@@ -148,6 +150,12 @@ function classify(entry) {
   // GUI: alles mit eigenem grafischen Fenster, das weder Terminal noch TUI
   // noch Webview ist - auch Editoren, Viewer und Dateimanager.
   if (!set.terminal && !set.tui && !set.webview) set.gui = true
+
+  // craft: die *craft-Programme (ai.storyteller.<name>craft, Exec <name>craft).
+  // Nur ein Filter - craft steht in PRIMARY_ORDER ganz hinten, die Farbe
+  // bleibt also die des Mesh (meist gui).
+  if (/^ai\.storyteller\.[a-z0-9]+craft(\.desktop)?$/.test(id) || /^[a-z0-9]+craft$/.test(execName(exec)))
+    set.craft = true
 
   var out = []
   for (var i = 0; i < PRIMARY_ORDER.length; i++) if (set[PRIMARY_ORDER[i]]) out.push(PRIMARY_ORDER[i])
