@@ -2,7 +2,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
-import QtQuick
+import QtQuick 2.15
 import qs.Commons
 import qs.Ui
 import "Monogram.js" as Monogram
